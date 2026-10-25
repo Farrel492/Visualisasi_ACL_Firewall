@@ -1,0 +1,338 @@
+"""Network 2D visualization and topology management page."""
+
+from __future__ import annotations
+
+import math
+from typing import Dict, Tuple
+import plotly.graph_objects as go
+import streamlit as st
+
+from firewall_sim.config.service import (
+    AddDevice,
+    AddLink,
+    RemoveDevice,
+    RemoveLink,
+    RenameDevice,
+)
+from firewall_sim.core.models import Device, DeviceType, ProjectState
+from firewall_sim.ui.components import (
+    empty_state,
+    next_steps,
+    page_header,
+    render_error_box,
+    render_simulation_banner,
+)
+from firewall_sim.ui.state import apply_command, get_state
+from firewall_sim.ui.theme import (
+    COLOR_ALLOW,
+    COLOR_AMBER,
+    COLOR_BASE,
+    COLOR_MUTED,
+    COLOR_PRIMARY,
+    COLOR_SURFACE,
+)
+
+
+def _calculate_layered_layout(state: ProjectState) -> Dict[str, Tuple[float, float]]:
+    """Menghitung koordinat 2D deterministik berlapis:
+    PC di kiri, Switch di tengah-kiri, Router di tengah, Server di kanan.
+    """
+    positions: Dict[str, Tuple[float, float]] = {}
+
+    routers = [d for d in state.devices if d.type == DeviceType.ROUTER]
+    switches = [d for d in state.devices if d.type == DeviceType.SWITCH]
+    pcs = [d for d in state.devices if d.type == DeviceType.PC]
+    servers = [d for d in state.devices if d.type == DeviceType.SERVER]
+
+    # Router di posisi pusat (0.0, 0.0)
+    for idx, r in enumerate(routers):
+        positions[r.id] = (0.0, float(idx * 2.0))
+
+    # PC di kolom kiri (-4.0)
+    for idx, pc in enumerate(pcs):
+        y_offset = (idx - (len(pcs) - 1) / 2.0) * 2.2
+        positions[pc.id] = (-4.5, y_offset)
+
+    # Switch di antara PC dan Router (-2.2)
+    for idx, sw in enumerate(switches):
+        y_offset = (idx - (len(switches) - 1) / 2.0) * 2.2
+        positions[sw.id] = (-2.0, y_offset)
+
+    # Server di kolom kanan (+3.5)
+    for idx, srv in enumerate(servers):
+        y_offset = (idx - (len(servers) - 1) / 2.0) * 2.2
+        positions[srv.id] = (3.5, y_offset)
+
+    # Fallback untuk perangkat lain yang belum terpetakan
+    for d in state.devices:
+        if d.id not in positions:
+            positions[d.id] = (0.0, -3.0)
+
+    return positions
+
+
+def render_network_page() -> None:
+    """Merender halaman workspace topologi 2D."""
+    render_simulation_banner()
+    page_header(
+        title="Topologi Jaringan (2D)",
+        description="Visualisasi interaktif keterhubungan perangkat fisik/virtual serta konfigurasi antarmuka L2/L3.",
+    )
+
+    state = get_state()
+
+    if not state.devices:
+        empty_state(
+            message="Topologi jaringan saat ini masih kosong. Silakan muat skenario lab atau tambahkan perangkat pertama Anda.",
+            action_label="Kembali ke Mulai di Sini",
+            target_page_or_callback="start_here",
+            key="empty_network_btn",
+            icon=":material/hub:",
+        )
+        return
+
+    col_main, col_side = st.columns([2.2, 1.0])
+
+    with col_main:
+        # Legenda Chip di atas grafik
+        st.markdown(
+            f"""
+            <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+                <span class="fw-chip" style="background:#DC262622;border:1px solid #DC2626;padding:3px 10px;border-radius:16px;font-size:0.85rem;color:#F87171;">
+                    ◆ <b>Router Firewall</b> (Tengah)
+                </span>
+                <span class="fw-chip" style="background:#3B82F622;border:1px solid #3B82F6;padding:3px 10px;border-radius:16px;font-size:0.85rem;color:#60A5FA;">
+                    ■ <b>L2 Switch</b>
+                </span>
+                <span class="fw-chip" style="background:#16A34A22;border:1px solid #16A34A;padding:3px 10px;border-radius:16px;font-size:0.85rem;color:#4ADE80;">
+                    ● <b>Host PC</b> (Kiri)
+                </span>
+                <span class="fw-chip" style="background:#8B5CF622;border:1px solid #8B5CF6;padding:3px 10px;border-radius:16px;font-size:0.85rem;color:#C084FC;">
+                    ⬡ <b>Web Server</b> (Kanan)
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        positions = _calculate_layered_layout(state)
+
+        # 1. Plotly 2D Network Graph
+        edge_x = []
+        edge_y = []
+        iface_to_dev: Dict[str, Device] = {}
+        for dev in state.devices:
+            for iface in dev.interfaces:
+                iface_to_dev[iface.id] = dev
+
+        for link in state.links:
+            dev_a = iface_to_dev.get(link.interface_a)
+            dev_b = iface_to_dev.get(link.interface_b)
+            if dev_a and dev_b and dev_a.id in positions and dev_b.id in positions:
+                x0, y0 = positions[dev_a.id]
+                x1, y1 = positions[dev_b.id]
+                edge_x.extend([x0, x1, None])
+                edge_y.extend([y0, y1, None])
+
+        edge_trace = go.Scatter(
+            x=edge_x,
+            y=edge_y,
+            line=dict(width=3, color=COLOR_MUTED),
+            hoverinfo="none",
+            mode="lines",
+        )
+
+        node_x = []
+        node_y = []
+        node_labels = []
+        node_hover = []
+        node_colors = []
+        node_symbols = []
+        node_sizes = []
+
+        type_colors = {
+            DeviceType.ROUTER: "#DC2626",
+            DeviceType.SWITCH: "#3B82F6",
+            DeviceType.PC: "#16A34A",
+            DeviceType.SERVER: "#8B5CF6",
+        }
+        type_symbols = {
+            DeviceType.ROUTER: "diamond",
+            DeviceType.SWITCH: "square",
+            DeviceType.PC: "circle",
+            DeviceType.SERVER: "hexagon",
+        }
+        type_sizes = {
+            DeviceType.ROUTER: 42,
+            DeviceType.SWITCH: 32,
+            DeviceType.PC: 32,
+            DeviceType.SERVER: 36,
+        }
+
+        for dev in state.devices:
+            if dev.id in positions:
+                x, y = positions[dev.id]
+                node_x.append(x)
+                node_y.append(y)
+
+                ip_list = [i.ipv4_cidr for i in dev.interfaces if i.ipv4_cidr]
+                ip_primary = ip_list[0] if ip_list else ("(L2 Switch)" if dev.type == DeviceType.SWITCH else "(No IP)")
+                node_labels.append(f"<b>{dev.name}</b><br>{ip_primary}")
+
+                ifaces_detail = "<br>".join([f"- {i.name}: {i.ipv4_cidr or 'L2'} ({'Up' if i.enabled else 'Down'})" for i in dev.interfaces])
+                node_hover.append(
+                    f"<b>{dev.name}</b> ({dev.type.value.upper()})<br>"
+                    f"Gateway: {dev.default_gateway or '-'}<br>"
+                    f"Interfaces:<br>{ifaces_detail}"
+                )
+
+                node_colors.append(type_colors.get(dev.type, COLOR_MUTED))
+                node_symbols.append(type_symbols.get(dev.type, "circle"))
+                node_sizes.append(type_sizes.get(dev.type, 32))
+
+        node_trace = go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode="markers+text",
+            hoverinfo="text",
+            hovertext=node_hover,
+            text=node_labels,
+            textposition="bottom center",
+            textfont=dict(color="#F8FAFC", size=11, family="sans-serif"),
+            marker=dict(
+                symbol=node_symbols,
+                size=node_sizes,
+                color=node_colors,
+                line=dict(width=2, color="#FFFFFF"),
+            ),
+        )
+
+        fig = go.Figure(
+            data=[edge_trace, node_trace],
+            layout=go.Layout(
+                showlegend=False,
+                hovermode="closest",
+                margin=dict(b=40, l=40, r=40, t=20),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                height=520,
+            ),
+        )
+
+        with st.container(border=True):
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Inspector Perangkat Terpilih
+        with st.container(border=True):
+            st.markdown("#### :material/search: Inspector Perangkat Terpilih")
+            dev_names = {d.id: f"{d.name} ({d.type.value.upper()})" for d in state.devices}
+            sel_dev_id = st.selectbox(
+                "Pilih perangkat:",
+                options=list(dev_names.keys()),
+                format_func=lambda x: dev_names[x],
+                key="sel_inspect_dev",
+            )
+            sel_dev = state.get_device(sel_dev_id)
+            if sel_dev:
+                ci1, ci2, ci3 = st.columns(3)
+                ci1.metric(label="Nama Perangkat", value=sel_dev.name)
+                ci2.metric(label="Tipe", value=sel_dev.type.value.upper())
+                ci3.metric(label="Default Gateway", value=sel_dev.default_gateway or "None")
+
+                st.markdown("**Antarmuka (Interfaces):**")
+                if sel_dev.interfaces:
+                    for iface in sel_dev.interfaces:
+                        st_icon = "🟢" if iface.enabled else "🔴"
+                        st_text = "Up" if iface.enabled else "Down"
+                        ip_text = iface.ipv4_cidr or "Tidak ada IP (Layer 2 Switch Port)"
+                        st.markdown(f"- {st_icon} **{iface.name}** (`{iface.id}`): `{ip_text}` — Status: *{st_text}*")
+                else:
+                    st.caption("Perangkat ini belum memiliki interface.")
+
+    with col_side:
+        # Panel Aksi Topologi
+        with st.container(border=True):
+            st.markdown("#### :material/tune: Kelola Topologi")
+
+            # Form Tambah Perangkat
+            with st.expander(":material/add_circle: Tambah Perangkat Baru"):
+                with st.form("form_add_dev"):
+                    new_dev_name = st.text_input("Nama Perangkat", placeholder="misal: PC C", key="input_add_dev_name")
+                    new_dev_type = st.selectbox("Tipe", [DeviceType.PC, DeviceType.SERVER, DeviceType.SWITCH], key="sel_add_dev_type")
+                    if st.form_submit_button("Simpan Perangkat", type="primary", use_container_width=True):
+                        if not new_dev_name.strip():
+                            st.error("Nama perangkat tidak boleh kosong.")
+                        else:
+                            success, errors = apply_command(AddDevice(name=new_dev_name.strip(), type=new_dev_type))
+                            if success:
+                                st.toast(f"Perangkat '{new_dev_name}' berhasil ditambahkan!")
+                                st.rerun()
+                            else:
+                                render_error_box(errors)
+
+            # Form Hubungkan Dua Interface
+            with st.expander(":material/cable: Hubungkan Link Jaringan"):
+                all_ifaces = [(i.id, f"{d.name} -> {i.name} ({i.id})") for d in state.devices for i in d.interfaces]
+                connected_ids = {l.interface_a for l in state.links} | {l.interface_b for l in state.links}
+                avail_ifaces = [item for item in all_ifaces if item[0] not in connected_ids]
+
+                if len(avail_ifaces) >= 2:
+                    with st.form("form_add_link"):
+                        if_a = st.selectbox("Interface A", options=[x[0] for x in avail_ifaces], format_func=lambda x: next(y[1] for y in avail_ifaces if y[0] == x), key="sel_link_a")
+                        other_avail = [x for x in avail_ifaces if x[0] != if_a]
+                        if_b = st.selectbox("Interface B", options=[x[0] for x in other_avail], format_func=lambda x: next(y[1] for y in other_avail if y[0] == x), key="sel_link_b")
+                        if st.form_submit_button("Hubungkan Link", type="primary", use_container_width=True):
+                            success, errors = apply_command(AddLink(interface_a=if_a, interface_b=if_b))
+                            if success:
+                                st.toast("Kabel link jaringan berhasil dihubungkan!")
+                                st.rerun()
+                            else:
+                                render_error_box(errors)
+                else:
+                    st.caption("Minimal 2 interface bebas dibutuhkan untuk membuat link baru.")
+
+            # Form Hapus Perangkat
+            with st.expander(":material/delete: Hapus Perangkat"):
+                deletable_devices = [d for d in state.devices if d.type != DeviceType.ROUTER]
+                if deletable_devices:
+                    with st.form("form_del_dev"):
+                        del_id = st.selectbox(
+                            "Pilih Perangkat untuk Dihapus:",
+                            options=[d.id for d in deletable_devices],
+                            format_func=lambda x: state.get_device(x).name if state.get_device(x) else x,
+                            key="sel_del_dev",
+                        )
+                        st.caption("⚠️ Menghapus perangkat akan memutus semua link yang terhubung.")
+                        if st.form_submit_button("Hapus Perangkat", use_container_width=True):
+                            success, errors = apply_command(RemoveDevice(device_id=del_id))
+                            if success:
+                                st.toast("Perangkat berhasil dihapus!")
+                                st.rerun()
+                            else:
+                                render_error_box(errors)
+                else:
+                    st.caption("Tidak ada perangkat yang dapat dihapus (Router firewall tunggal dilindungi).")
+
+            # Form Hapus Link
+            with st.expander(":material/link_off: Hapus Link"):
+                if state.links:
+                    with st.form("form_del_link"):
+                        sel_link_del = st.selectbox("Pilih Link:", options=[l.id for l in state.links], key="sel_del_link")
+                        if st.form_submit_button("Putus Link", use_container_width=True):
+                            success, errors = apply_command(RemoveLink(link_id=sel_link_del))
+                            if success:
+                                st.toast("Link jaringan berhasil diputus!")
+                                st.rerun()
+                            else:
+                                render_error_box(errors)
+                else:
+                    st.caption("Tidak ada link aktif saat ini.")
+
+        # Langkah Berikutnya
+        next_steps([
+            ("Konfigurasi IP & Gateway", "device_config"),
+            ("Atur Kebijakan Firewall", "firewall_rules"),
+            ("Uji Simulasi Paket", "packet_sim"),
+        ])
