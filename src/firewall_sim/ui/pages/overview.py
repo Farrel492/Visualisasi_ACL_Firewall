@@ -11,6 +11,7 @@ from firewall_sim.ui.components import (
     next_steps,
     page_header,
     render_error_box,
+    render_flow_next,
     render_simulation_banner,
 )
 from firewall_sim.ui.state import (
@@ -35,7 +36,7 @@ def render_overview_page() -> None:
     state = get_state()
     scenario_name = dict(state.scenario_metadata).get("name", "Custom Scenario")
 
-    # Baris KPI Ringkasan
+    # 4 KPI Utama Ringkasan Sistem
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Skenario Aktif", scenario_name, border=True)
     k2.metric("Config Revision", f"Rev #{state.config_revision}", border=True)
@@ -81,6 +82,18 @@ def render_overview_page() -> None:
                 st.caption(f"Uji terakhir: {get_decision_badge(logs[0].decision)} — {logs[0].source_device} -> {logs[0].destination_target}")
             else:
                 st.info("Belum ada pengujian simulasi paket yang dijalankan.")
+
+        # Riwayat Audit Log Konfigurasi (5 terakhir)
+        if state.audit_log:
+            with st.container(border=True):
+                st.markdown("#### :material/history: 5 Revisi Konfigurasi Terakhir")
+                recent_logs = list(reversed(state.audit_log[-5:]))
+                for entry in recent_logs:
+                    st.caption(
+                        f":material/commit: **Rev #{entry.revision}** (`{entry.command_name}`) — "
+                        f"{entry.details or 'Pembaruan konfigurasi'} <span style='opacity:0.6;'>({entry.timestamp[:19]})</span>",
+                        unsafe_allow_html=True,
+                    )
 
     with col_side:
         # Kontrol Simpan / Muat Proyek JSON & Reset
@@ -128,3 +141,6 @@ def render_overview_page() -> None:
             ("Simulasi Paket", "packet_sim"),
             ("Analisis Log Trafik", "traffic_logs"),
         ])
+
+    render_flow_next("network", "Topologi 2D", "Mulai meninjau atau menyusun perangkat jaringan.")
+

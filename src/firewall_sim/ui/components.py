@@ -15,6 +15,7 @@ from firewall_sim.ui.theme import (
     COLOR_MUTED,
     COLOR_SURFACE,
     SPACING_MD,
+    inject_theme_css,
 )
 
 GLOSSARY = {
@@ -59,9 +60,50 @@ def render_error_box(errors: List[str]) -> None:
 def page_header(title: str, description: Optional[str] = None) -> None:
     """Standard page header with navigation-matching title and 1-sentence purpose description."""
     init_session_state()
+    st.markdown(inject_theme_css(), unsafe_allow_html=True)
     st.title(title)
     if description:
         st.caption(description)
+
+
+def render_workflow_rail(current_page: str) -> None:
+    """Merender bilah alur kerja horizontal 5 langkah yang memandu pengguna:
+    1. Build (network) -> 2. Configure (firewall_rules) -> 3. Simulate (packet_sim) -> 4. Visualize (viz3d) -> 5. Analyze (traffic_logs).
+    """
+    steps = [
+        ("network", "1", "Build", "Topologi"),
+        ("firewall_rules", "2", "Configure", "Aturan"),
+        ("packet_sim", "3", "Simulate", "Uji Paket"),
+        ("viz3d", "4", "Visualize", "3D Replay"),
+        ("traffic_logs", "5", "Analyze", "Log & Audit"),
+    ]
+    items_html = []
+    for page_id, num, eng_name, id_name in steps:
+        is_active = (current_page == page_id)
+        active_cls = " active" if is_active else ""
+        items_html.append(
+            f"<div class='fw-step-item{active_cls}'>"
+            f"<span class='fw-step-num'>{num}</span>"
+            f"<span><strong>{eng_name}</strong> <span style='opacity:0.7;'>({id_name})</span></span>"
+            f"</div>"
+        )
+    sep = "<span class='fw-step-arrow' style='padding:0 0.25rem;'>&rarr;</span>"
+    rail_html = f"<div class='fw-workflow-rail'>{''.join([f'{item}{sep}' if i < len(items_html)-1 else item for i, item in enumerate(items_html)])}</div>"
+    st.markdown(rail_html, unsafe_allow_html=True)
+
+
+def render_flow_next(next_page_id: str, next_label: str, hint: Optional[str] = None) -> None:
+    """Menampilkan tombol navigasi alur kerja berikutnya di akhir konten halaman."""
+    st.markdown("---")
+    c_info, c_btn = st.columns([3, 1.2])
+    with c_info:
+        if hint:
+            st.caption(f":material/arrow_forward: **Langkah Berikutnya:** {hint}")
+    with c_btn:
+        if st.button(f"Lanjut: {next_label}", icon=":material/navigate_next:", type="primary", use_container_width=True, key=f"btn_flow_next_{next_page_id}"):
+            st.session_state["nav_page"] = next_page_id
+            st.rerun()
+
 
 
 def card(content: str, *, icon: str = "", background: str = COLOR_SURFACE) -> None:

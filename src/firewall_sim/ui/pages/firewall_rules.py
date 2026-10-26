@@ -22,7 +22,9 @@ from firewall_sim.ui.components import (
     next_steps,
     page_header,
     render_error_box,
+    render_flow_next,
     render_simulation_banner,
+    render_workflow_rail,
 )
 from firewall_sim.ui.state import apply_command, get_state, is_learning
 
@@ -34,6 +36,7 @@ def render_firewall_rules_page() -> None:
         title="Aturan Firewall",
         description="Definisikan kebijakan filter paket berbasis urutan (first matching terminal action wins) dan default policy per chain.",
     )
+    render_workflow_rail("firewall_rules")
 
     state = get_state()
 
@@ -233,3 +236,6 @@ def render_firewall_rules_page() -> None:
             ("Pantau Visualisasi 3D", "viz3d"),
             ("Analisis Log Trafik", "traffic_logs"),
         ])
+
+    render_flow_next("packet_sim", "Simulasi Paket", "Uji aturan firewall ini dengan mengirimkan paket virtual.")
+

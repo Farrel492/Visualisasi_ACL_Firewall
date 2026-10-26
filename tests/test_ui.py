@@ -323,3 +323,30 @@ def test_ui_learning_vs_professional_mode_elements():
     assert at_learn.session_state[KEY_STATE] == at_pro.session_state[KEY_STATE]
 
 
+def test_ui_workflow_rail_and_flow_next():
+    """Menguji bahwa Workflow Rail ter-render di halaman alur kerja dan tombol flow-next berfungsi."""
+    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at.run()
+
+    # 1. Buka halaman Network
+    at.session_state[KEY_NAV_PAGE] = "network"
+    at.run()
+    assert not at.exception
+    # Periksa keberadaan elemen workflow rail yang AKTUAL (bukan hanya CSS definition)
+    # Rail aktual mengandung SEKALIGUS "fw-workflow-rail" (container div) DAN "fw-step-item active" (step aktif)
+    rail_actual = [m.value for m in at.markdown if "fw-workflow-rail" in m.value and "fw-step-item active" in m.value]
+    assert len(rail_actual) >= 1, "Workflow rail dengan active step tidak ditemukan pada halaman network"
+
+    # Klik tombol flow next menuju firewall_rules
+    btn_next = [b for b in at.button if b.key == "btn_flow_next_firewall_rules"]
+    assert len(btn_next) == 1, "Tombol flow next ke firewall_rules tidak ditemukan"
+    btn_next[0].click().run()
+    assert not at.exception
+    assert at.session_state[KEY_NAV_PAGE] == "firewall_rules"
+
+    # 2. Periksa workflow rail di firewall_rules aktif di langkah 2
+    rail_rules_actual = [m.value for m in at.markdown if "fw-workflow-rail" in m.value and "fw-step-item active" in m.value]
+    assert len(rail_rules_actual) >= 1, "Workflow rail dengan active step tidak ditemukan pada halaman firewall_rules"
+
+
+

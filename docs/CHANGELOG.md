@@ -4,8 +4,24 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ## [Unreleased]
 
+### 2026-10-26: Tahap R2 - Workflow Rail, CSS Design System, dan Audit Log Dasbor
+- **Added:**
+  - `src/firewall_sim/ui/theme.py` — `inject_theme_css()`: Menghasilkan CSS design system `.fw-*` dengan token CSS variabel, workflow rail, card hover, badge monospace, terminal window frame, dan `@media (prefers-reduced-motion)` untuk aksesibilitas.
+  - `src/firewall_sim/ui/components.py` — `render_workflow_rail(current_page)`: Menampilkan bilah 5 langkah horizontal (Build → Configure → Simulate → Visualize → Analyze) dengan langkah aktif di-highlight; `render_flow_next(page, label, hint)`: Tombol navigasi "Lanjut: <halaman>" di akhir setiap konten halaman.
+  - `tests/test_ui.py` — `test_ui_workflow_rail_and_flow_next`: Pengujian verifikasi keberadaan workflow rail di halaman network dan fungsionalitas tombol flow next.
+- **Changed:**
+  - `src/firewall_sim/ui/pages/start_here.py`: Hero dipadatkan (3 kalimat teknis), panduan konsep dipindahkan ke expander yang muncul hanya di Learning Mode, tombol langkah stepper lebih ikonis (icon + label pendek). Ditambahkan `render_flow_next`.
+  - `src/firewall_sim/ui/pages/overview.py`: Ditambahkan kartu riwayat 5 revisi audit log konfigurasi terakhir. Ditambahkan `render_flow_next`.
+  - `src/firewall_sim/ui/pages/network.py`, `firewall_rules.py`, `packet_sim.py`, `viz3d_page.py`, `traffic_logs.py`: Ditambahkan `render_workflow_rail` dan `render_flow_next` untuk memberikan alur navigasi berurutan yang terarah.
+  - `src/firewall_sim/ui/components.py`: Penambahan `inject_theme_css()` di dalam `page_header` agar CSS design system diinjeksikan di setiap halaman.
+- **Impacted modules:** `ui/theme.py`, `ui/components.py`, `ui/pages/start_here.py`, `ui/pages/overview.py`, `ui/pages/network.py`, `ui/pages/firewall_rules.py`, `ui/pages/packet_sim.py`, `ui/pages/viz3d_page.py`, `ui/pages/traffic_logs.py`, `tests/test_ui.py`.
+- **Tests performed:** `pytest` 78 passed in 9.32s (100% lulus, +1 tes baru).
+- **Known limitations:** Animasi CSS (fade/slide), gaya terminal actual, dan rendering Plotly/3D tidak dapat diverifikasi pada headless AppTest.
+- **Next steps:** Tahap R3 - Konsol CLI bergaya terminal nyata (window frame, monospace prompt, output berwarna per jenis, riwayat per sesi).
+
 ### 2026-10-26: Tahap R1 - Perbaikan Bug P0, Kejelasan Topologi, dan Eliminasi Emoji
 - **Added:**
+
   - `docs/UI_AUDIT.md`: Dokumen audit antarmuka 31 item mencatat reproduksi bug, pesan error asli, dan verifikasi fitur interaktif.
   - `src/firewall_sim/ui/assets/logo.svg` & `src/firewall_sim/ui/assets/icon.svg`: Asset visual SVG tanpa dependensi eksternal untuk integrasi `st.logo`.
   - `tests/test_ui.py`: Penambahan pengujian verifikasi form CRUD topologi (`test_ui_topology_crud_actions`) dan perbedaan elemen mode Learning vs Professional (`test_ui_learning_vs_professional_mode_elements`).

@@ -21,7 +21,9 @@ from firewall_sim.ui.components import (
     next_steps,
     page_header,
     render_error_box,
+    render_flow_next,
     render_simulation_banner,
+    render_workflow_rail,
 )
 from firewall_sim.ui.state import apply_command, get_state
 from firewall_sim.ui.theme import (
@@ -79,6 +81,7 @@ def render_network_page() -> None:
         title="Topologi 2D",
         description="Visualisasi interaktif keterhubungan perangkat serta konfigurasi antarmuka L2/L3.",
     )
+    render_workflow_rail("network")
 
     state = get_state()
 
@@ -410,3 +413,6 @@ def render_network_page() -> None:
             ("Atur Kebijakan Firewall", "firewall_rules"),
             ("Uji Simulasi Paket", "packet_sim"),
         ])
+
+    render_flow_next("firewall_rules", "Aturan Firewall", "Lanjutkan ke konfigurasi aturan firewall.")
+

@@ -10,7 +10,9 @@ from firewall_sim.ui.components import (
     empty_state,
     next_steps,
     page_header,
+    render_flow_next,
     render_simulation_banner,
+    render_workflow_rail,
 )
 from firewall_sim.ui.state import get_traffic_logs
 from firewall_sim.ui.theme import get_decision_badge
@@ -23,6 +25,7 @@ def render_traffic_logs_page() -> None:
         title="Log Trafik",
         description="Pencatatan riwayat seluruh paket virtual yang dievaluasi dalam simulator jaringan.",
     )
+    render_workflow_rail("traffic_logs")
 
     logs = get_traffic_logs()
     summary = summarize_traffic(logs)
@@ -120,3 +123,6 @@ def render_traffic_logs_page() -> None:
             ("Lihat Replay 3D", "viz3d"),
             ("Jalankan Uji Paket Lain", "packet_sim"),
         ])
+
+    render_flow_next("alerts", "Pusat Peringatan", "Periksa rincian event penolakan atau analisis lebih lanjut.")
+

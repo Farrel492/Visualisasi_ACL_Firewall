@@ -10,7 +10,9 @@ from firewall_sim.ui.components import (
     empty_state,
     next_steps,
     page_header,
+    render_flow_next,
     render_simulation_banner,
+    render_workflow_rail,
 )
 from firewall_sim.ui.state import get_simulation_history, get_state
 from firewall_sim.ui.theme import COLOR_MUTED, get_decision_badge
@@ -24,6 +26,7 @@ def render_viz3d_page() -> None:
         title="Visualisasi 3D",
         description="Amati topologi jaringan secara 3D dan putar ulang jalannya paket virtual langkah demi langkah.",
     )
+    render_workflow_rail("viz3d")
 
     state = get_state()
     history = get_simulation_history()
@@ -292,3 +295,6 @@ def render_viz3d_page() -> None:
             ("Periksa Alert Keamanan", "alerts"),
             ("Jalankan Uji Paket Lain", "packet_sim"),
         ])
+
+    render_flow_next("traffic_logs", "Log Trafik", "Analisis riwayat dan statistik paket yang disimulasikan.")
+

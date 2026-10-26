@@ -16,7 +16,9 @@ from firewall_sim.ui.components import (
     empty_state,
     next_steps,
     page_header,
+    render_flow_next,
     render_simulation_banner,
+    render_workflow_rail,
 )
 from firewall_sim.ui.state import (
     add_simulation_run,
@@ -40,6 +42,7 @@ def render_packet_sim_page() -> None:
         title="Simulasi Paket",
         description="Kirim paket virtual untuk menguji evaluasi firewall secara nyata dan menelusuri rute L2/L3.",
     )
+    render_workflow_rail("packet_sim")
 
     state = get_state()
     history = get_simulation_history()
@@ -263,3 +266,6 @@ def render_packet_sim_page() -> None:
             ("Periksa Pusat Peringatan", "alerts"),
             ("Kembali ke Aturan Firewall", "firewall_rules"),
         ])
+
+    render_flow_next("viz3d", "Visualisasi 3D", "Lihat animasi perjalanan paket dalam 3D.")
+
