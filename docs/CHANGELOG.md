@@ -4,9 +4,18 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ## [Unreleased]
 
+### 2026-10-26: Tahap R3 - Konsol CLI Terminal Bergaya Nyata
+- **Changed:**
+  - `src/firewall_sim/ui/pages/cli_console.py`: Dibangun ulang sepenuhnya. Menampilkan jendela terminal HTML bergaya macOS (window bar dengan dots merah/kuning/hijau, label hostname, scrollable body). Output per baris diberi warna: prompt `fw-lab>` biru, perintah putih, output sukses hijau, pesan error merah, baris dimulai. Form input Enter-to-submit, tombol "Bersihkan" khusus log CLI, chip perintah cepat dengan ikon Material. Referensi sintaks tersembunyi dalam expander. Sanitasi HTML via `html.escape()` untuk keamanan.
+- **Impacted modules:** `src/firewall_sim/ui/pages/cli_console.py`.
+- **Tests performed:** `pytest` 78 passed in 11.90s (100% lulus, tidak ada regresi).
+- **Known limitations:** Rendering jendela terminal HTML dan warna output tidak dapat diverifikasi secara visual pada AppTest headless.
+- **Next steps:** Tahap R4 - Topologi 2D dengan gambar SVG perangkat kustom (PC, Switch, Router, Server).
+
+
 ### 2026-10-26: Tahap R2 - Workflow Rail, CSS Design System, dan Audit Log Dasbor
 - **Added:**
-  - `src/firewall_sim/ui/theme.py` — `inject_theme_css()`: Menghasilkan CSS design system `.fw-*` dengan token CSS variabel, workflow rail, card hover, badge monospace, terminal window frame, dan `@media (prefers-reduced-motion)` untuk aksesibilitas.
+ — `inject_theme_css()`: Menghasilkan CSS design system `.fw-*` dengan token CSS variabel, workflow rail, card hover, badge monospace, terminal window frame, dan `@media (prefers-reduced-motion)` untuk aksesibilitas.
   - `src/firewall_sim/ui/components.py` — `render_workflow_rail(current_page)`: Menampilkan bilah 5 langkah horizontal (Build → Configure → Simulate → Visualize → Analyze) dengan langkah aktif di-highlight; `render_flow_next(page, label, hint)`: Tombol navigasi "Lanjut: <halaman>" di akhir setiap konten halaman.
   - `tests/test_ui.py` — `test_ui_workflow_rail_and_flow_next`: Pengujian verifikasi keberadaan workflow rail di halaman network dan fungsionalitas tombol flow next.
 - **Changed:**
