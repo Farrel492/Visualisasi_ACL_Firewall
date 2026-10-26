@@ -121,112 +121,13 @@ def render_network_page() -> None:
 
         positions = _calculate_layered_layout(state)
 
-        # 1. Plotly 2D Network Graph
-        edge_x = []
-        edge_y = []
-        iface_to_dev: Dict[str, Device] = {}
-        for dev in state.devices:
-            for iface in dev.interfaces:
-                iface_to_dev[iface.id] = dev
+        # 1. Visualisasi Topologi 2D dengan SVG custom
+        from firewall_sim.ui.svg_topology import build_svg_html_component
+        # Tidak ada highlight jalur pada halaman jaringan standar
+        svg_html = build_svg_html_component(state)
+        # Render HTML SVG dalam komponen Streamlit (ukuran responsif)
+        st.components.v1.html(svg_html, height=540, scrolling=True)
 
-        for link in state.links:
-            dev_a = iface_to_dev.get(link.interface_a)
-            dev_b = iface_to_dev.get(link.interface_b)
-            if dev_a and dev_b and dev_a.id in positions and dev_b.id in positions:
-                x0, y0 = positions[dev_a.id]
-                x1, y1 = positions[dev_b.id]
-                edge_x.extend([x0, x1, None])
-                edge_y.extend([y0, y1, None])
-
-        edge_trace = go.Scatter(
-            x=edge_x,
-            y=edge_y,
-            line=dict(width=3, color=COLOR_MUTED),
-            hoverinfo="none",
-            mode="lines",
-        )
-
-        node_x = []
-        node_y = []
-        node_labels = []
-        node_hover = []
-        node_colors = []
-        node_symbols = []
-        node_sizes = []
-
-        type_colors = {
-            DeviceType.ROUTER: "#DC2626",
-            DeviceType.SWITCH: "#3B82F6",
-            DeviceType.PC: "#16A34A",
-            DeviceType.SERVER: "#8B5CF6",
-        }
-        type_symbols = {
-            DeviceType.ROUTER: "diamond",
-            DeviceType.SWITCH: "square",
-            DeviceType.PC: "circle",
-            DeviceType.SERVER: "hexagon",
-        }
-        type_sizes = {
-            DeviceType.ROUTER: 42,
-            DeviceType.SWITCH: 32,
-            DeviceType.PC: 32,
-            DeviceType.SERVER: 36,
-        }
-
-        for dev in state.devices:
-            if dev.id in positions:
-                x, y = positions[dev.id]
-                node_x.append(x)
-                node_y.append(y)
-
-                ip_list = [i.ipv4_cidr for i in dev.interfaces if i.ipv4_cidr]
-                ip_primary = ip_list[0] if ip_list else ("(L2 Switch)" if dev.type == DeviceType.SWITCH else "(No IP)")
-                node_labels.append(f"<b>{dev.name}</b><br>{ip_primary}")
-
-                ifaces_detail = "<br>".join([f"- {i.name}: {i.ipv4_cidr or 'L2'} ({'Up' if i.enabled else 'Down'})" for i in dev.interfaces])
-                node_hover.append(
-                    f"<b>{dev.name}</b> ({dev.type.value.upper()})<br>"
-                    f"Gateway: {dev.default_gateway or '-'}<br>"
-                    f"Interfaces:<br>{ifaces_detail}"
-                )
-
-                node_colors.append(type_colors.get(dev.type, COLOR_MUTED))
-                node_symbols.append(type_symbols.get(dev.type, "circle"))
-                node_sizes.append(type_sizes.get(dev.type, 32))
-
-        node_trace = go.Scatter(
-            x=node_x,
-            y=node_y,
-            mode="markers+text",
-            hoverinfo="text",
-            hovertext=node_hover,
-            text=node_labels,
-            textposition="bottom center",
-            textfont=dict(color="#F8FAFC", size=11, family="sans-serif"),
-            marker=dict(
-                symbol=node_symbols,
-                size=node_sizes,
-                color=node_colors,
-                line=dict(width=2, color="#FFFFFF"),
-            ),
-        )
-
-        fig = go.Figure(
-            data=[edge_trace, node_trace],
-            layout=go.Layout(
-                showlegend=False,
-                hovermode="closest",
-                margin=dict(b=40, l=40, r=40, t=20),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                height=520,
-            ),
-        )
-
-        with st.container(border=True):
-            st.plotly_chart(fig, use_container_width=True)
 
         # Inspector Perangkat Terpilih
         with st.container(border=True):
@@ -380,6 +281,7 @@ def render_network_page() -> None:
             # Form Hapus Link
             with st.expander(":material/link_off: Hapus Link"):
                 if state.links:
+                    iface_to_dev = {iface.id: dev for dev in state.devices for iface in dev.interfaces}
                     def _format_link_option(link_id: str) -> str:
                         lk = next((l for l in state.links if l.id == link_id), None)
                         if not lk:
