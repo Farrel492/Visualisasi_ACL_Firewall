@@ -9,7 +9,7 @@ Selamat datang di **Firewall Simulator Virtual**. Dokumen ini dirancang sebagai 
 Firewall Simulator dirancang dengan alur kerja logis 5 tahap:
 
 ```
-[1. Build] ➔ [2. Configure] ➔ [3. Simulate] ➔ [4. Visualize] ➔ [5. Analyze]
+[1. Build] -> [2. Configure] -> [3. Simulate] -> [4. Visualize] -> [5. Analyze]
  Topologi     Aturan Firewall   Kirim Paket      Replay 3D       Log & Alert
 ```
 
@@ -29,7 +29,7 @@ Firewall Simulator dirancang dengan alur kerja logis 5 tahap:
    - Amati pergerakan paket virtual frame-demi-frame melintasi lapisan topologi menggunakan slider atau tombol navigasi. Paket yang terkena `DROP` akan berhenti di router.
 5. **Langkah 5 - Analyze (Log Trafik & Pusat Peringatan)**:
    - Periksa **Log Trafik** untuk rekapitulasi tabular seluruh pengujian paket.
-   - Buka **Pusat Peringatan (Alert Center)** untuk meninjau rekaman event penolakan firewall.
+   - Buka **Pusat Peringatan** untuk meninjau rekaman event penolakan firewall.
 
 ---
 
@@ -39,11 +39,11 @@ Gunakan skrip terstruktur ini saat presentasi atau demonstrasi langsung:
 
 | Menit | Menu / Aksi yang Dilakukan | Ekspektasi Hasil Visual |
 |---|---|---|
-| **00:00 - 02:00** | Buka **Mulai di Sini**, klik tombol **"🚀 Muat Demo Siap Pakai"**. | Topologi standar dimuat, 2 aturan firewall terkonfigurasi, dan 2 pengujian otomatis selesai. Indikator stepper 5 kartu berubah menjadi **Selesai (Hijau)**. |
+| **00:00 - 02:00** | Buka **Mulai di Sini**, klik tombol **"Muat Demo Siap Pakai"**. | Topologi standar dimuat, 2 aturan firewall terkonfigurasi, dan 2 pengujian otomatis selesai. Indikator stepper 5 kartu berubah menjadi **Selesai (Hijau)**. |
 | **02:00 - 04:00** | Buka menu **Topologi 2D**. Amati tata letak graf berlapis (PC di kiri, switch, router di tengah-kanan, server di kanan). Klik salah satu node untuk inspeksi. | Graf interaktif Plotly 520px tampil rapi dengan chip legenda. Inspector di bawah grafik menampilkan interface dan gateway aktif. |
 | **04:00 - 06:00** | Buka menu **Aturan Firewall**. Amati daftar aturan pada tab `Chain FORWARD`. Tunjukkan tombol naik/turun order dan status aktif. | Terlihat Rule #1 (ACCEPT PC A ke Server Port 80) dan Rule #2 (DROP PC B ke Server Port 80). Banner penegasan *First Match Wins* terlihat jelas. |
-| **06:00 - 08:00** | Buka menu **Simulasi Paket**. Klik tombol uji cepat **"PC A ➔ Server :80"** lalu **"PC B ➔ Server :80"**. | Muncul kartu hasil beraksen: PC A berstatus **ACCEPT (Hijau)**, sedangkan PC B berstatus **DROP (Merah)** lengkap dengan alasan penolakan dan trace bernomor. |
-| **08:00 - 10:00** | Klik tombol **"🧊 Lihat di 3D"** pada hasil DROP, amati bahwa titik paket berhenti di router. Buka **Pusat Peringatan** untuk melihat event DROP tercatat tanpa label serangan palsu. | Replay 3D menunjukkan paket berhenti di router (Z=0). Dasbor Peringatan memuat catatan resmi penolakan kebijakan. |
+| **06:00 - 08:00** | Buka menu **Simulasi Paket**. Klik tombol uji cepat **"PC A -> Server :80"** lalu **"PC B -> Server :80"**. | Muncul kartu hasil beraksen: PC A berstatus **ACCEPT (Hijau)**, sedangkan PC B berstatus **DROP (Merah)** lengkap dengan alasan penolakan dan trace bernomor. |
+| **08:00 - 10:00** | Klik tombol **"Lihat di 3D"** pada hasil DROP, amati bahwa titik paket berhenti di router. Buka **Pusat Peringatan** untuk melihat event DROP tercatat tanpa label serangan palsu. | Replay 3D menunjukkan paket berhenti di router (Z=0). Dasbor Peringatan memuat catatan resmi penolakan kebijakan. |
 
 ---
 

@@ -20,7 +20,7 @@ def render_traffic_logs_page() -> None:
     """Merender dasbor log analisis lalu lintas paket virtual."""
     render_simulation_banner()
     page_header(
-        title="Log Trafik & Monitoring",
+        title="Log Trafik",
         description="Pencatatan riwayat seluruh paket virtual yang dievaluasi dalam simulator jaringan.",
     )
 
@@ -30,9 +30,9 @@ def render_traffic_logs_page() -> None:
     # 1. Baris KPI Metrik Agregasi
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Pengujian", summary["total"], border=True)
-    m2.metric("🟢 Lolos (ACCEPT)", summary["ACCEPT"], border=True)
-    m3.metric("🔴 Ditolak (DROP)", summary["DROP"], border=True)
-    m4.metric("⚠️ Rute Hilang (NO_ROUTE)", summary["NO_ROUTE"], border=True)
+    m2.metric("Lolos (ACCEPT)", summary["ACCEPT"], border=True)
+    m3.metric("Ditolak (DROP)", summary["DROP"], border=True)
+    m4.metric("Rute Hilang (NO_ROUTE)", summary["NO_ROUTE"], border=True)
 
     if not logs:
         empty_state(

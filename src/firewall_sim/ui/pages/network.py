@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Dict, Tuple
 import plotly.graph_objects as go
 import streamlit as st
@@ -14,7 +15,7 @@ from firewall_sim.config.service import (
     RemoveLink,
     RenameDevice,
 )
-from firewall_sim.core.models import Device, DeviceType, ProjectState
+from firewall_sim.core.models import Device, DeviceType, Interface, ProjectState
 from firewall_sim.ui.components import (
     empty_state,
     next_steps,
@@ -75,8 +76,8 @@ def render_network_page() -> None:
     """Merender halaman workspace topologi 2D."""
     render_simulation_banner()
     page_header(
-        title="Topologi Jaringan (2D)",
-        description="Visualisasi interaktif keterhubungan perangkat fisik/virtual serta konfigurasi antarmuka L2/L3.",
+        title="Topologi 2D",
+        description="Visualisasi interaktif keterhubungan perangkat serta konfigurasi antarmuka L2/L3.",
     )
 
     state = get_state()
@@ -244,7 +245,7 @@ def render_network_page() -> None:
                 st.markdown("**Antarmuka (Interfaces):**")
                 if sel_dev.interfaces:
                     for iface in sel_dev.interfaces:
-                        st_icon = "🟢" if iface.enabled else "🔴"
+                        st_icon = ":material/check_circle:" if iface.enabled else ":material/cancel:"
                         st_text = "Up" if iface.enabled else "Down"
                         ip_text = iface.ipv4_cidr or "Tidak ada IP (Layer 2 Switch Port)"
                         st.markdown(f"- {st_icon} **{iface.name}** (`{iface.id}`): `{ip_text}` — Status: *{st_text}*")
@@ -256,16 +257,61 @@ def render_network_page() -> None:
         with st.container(border=True):
             st.markdown("#### :material/tune: Kelola Topologi")
 
+            DEV_TYPE_LABELS = {
+                DeviceType.PC: "PC",
+                DeviceType.SERVER: "Server",
+                DeviceType.SWITCH: "Switch",
+            }
+
             # Form Tambah Perangkat
             with st.expander(":material/add_circle: Tambah Perangkat Baru"):
                 with st.form("form_add_dev"):
                     new_dev_name = st.text_input("Nama Perangkat", placeholder="misal: PC C", key="input_add_dev_name")
-                    new_dev_type = st.selectbox("Tipe", [DeviceType.PC, DeviceType.SERVER, DeviceType.SWITCH], key="sel_add_dev_type")
+                    new_dev_type = st.selectbox(
+                        "Tipe",
+                        [DeviceType.PC, DeviceType.SERVER, DeviceType.SWITCH],
+                        format_func=lambda t: DEV_TYPE_LABELS.get(t, t.value),
+                        key="sel_add_dev_type",
+                    )
+                    new_ip = ""
+                    new_gw = ""
+                    if new_dev_type in (DeviceType.PC, DeviceType.SERVER):
+                        default_ip = "192.168.1.30/24" if new_dev_type == DeviceType.PC else "10.0.0.20/24"
+                        default_gw = "192.168.1.1" if new_dev_type == DeviceType.PC else "10.0.0.1"
+                        new_ip = st.text_input("Alamat IPv4/CIDR", value=default_ip, key="input_add_dev_ip")
+                        new_gw = st.text_input("Default Gateway", value=default_gw, key="input_add_dev_gw")
+
                     if st.form_submit_button("Simpan Perangkat", type="primary", use_container_width=True):
                         if not new_dev_name.strip():
                             st.error("Nama perangkat tidak boleh kosong.")
                         else:
-                            success, errors = apply_command(AddDevice(name=new_dev_name.strip(), type=new_dev_type))
+                            dev_slug = re.sub(r"[^a-z0-9_]+", "_", new_dev_name.strip().lower()).strip("_")
+                            if not dev_slug:
+                                dev_slug = f"dev_{len(state.devices)+1}"
+
+                            if new_dev_type in (DeviceType.PC, DeviceType.SERVER):
+                                iface = Interface(
+                                    id=f"if_{dev_slug}",
+                                    device_id=dev_slug,
+                                    name="eth0",
+                                    ipv4_cidr=new_ip.strip() or None,
+                                    enabled=True,
+                                )
+                                cmd = AddDevice(
+                                    name=new_dev_name.strip(),
+                                    type=new_dev_type,
+                                    device_id=dev_slug,
+                                    interfaces=(iface,),
+                                    default_gateway=new_gw.strip() or None,
+                                )
+                            else:
+                                cmd = AddDevice(
+                                    name=new_dev_name.strip(),
+                                    type=new_dev_type,
+                                    device_id=dev_slug,
+                                )
+
+                            success, errors = apply_command(cmd)
                             if success:
                                 st.toast(f"Perangkat '{new_dev_name}' berhasil ditambahkan!")
                                 st.rerun()
@@ -280,9 +326,19 @@ def render_network_page() -> None:
 
                 if len(avail_ifaces) >= 2:
                     with st.form("form_add_link"):
-                        if_a = st.selectbox("Interface A", options=[x[0] for x in avail_ifaces], format_func=lambda x: next(y[1] for y in avail_ifaces if y[0] == x), key="sel_link_a")
+                        if_a = st.selectbox(
+                            "Interface A",
+                            options=[x[0] for x in avail_ifaces],
+                            format_func=lambda x: next((y[1] for y in avail_ifaces if y[0] == x), x),
+                            key="sel_link_a",
+                        )
                         other_avail = [x for x in avail_ifaces if x[0] != if_a]
-                        if_b = st.selectbox("Interface B", options=[x[0] for x in other_avail], format_func=lambda x: next(y[1] for y in other_avail if y[0] == x), key="sel_link_b")
+                        if_b = st.selectbox(
+                            "Interface B",
+                            options=[x[0] for x in other_avail],
+                            format_func=lambda x: next((y[1] for y in other_avail if y[0] == x), x),
+                            key="sel_link_b",
+                        )
                         if st.form_submit_button("Hubungkan Link", type="primary", use_container_width=True):
                             success, errors = apply_command(AddLink(interface_a=if_a, interface_b=if_b))
                             if success:
@@ -291,7 +347,10 @@ def render_network_page() -> None:
                             else:
                                 render_error_box(errors)
                 else:
-                    st.caption("Minimal 2 interface bebas dibutuhkan untuk membuat link baru.")
+                    st.info(
+                        "Semua port terpakai; putuskan link lain atau tambah Switch untuk menghubungkan perangkat.",
+                        icon=":material/info:",
+                    )
 
             # Form Hapus Perangkat
             with st.expander(":material/delete: Hapus Perangkat"):
@@ -304,7 +363,7 @@ def render_network_page() -> None:
                             format_func=lambda x: state.get_device(x).name if state.get_device(x) else x,
                             key="sel_del_dev",
                         )
-                        st.caption("⚠️ Menghapus perangkat akan memutus semua link yang terhubung.")
+                        st.caption("Menghapus perangkat akan otomatis memutus link yang terhubung dengannya.")
                         if st.form_submit_button("Hapus Perangkat", use_container_width=True):
                             success, errors = apply_command(RemoveDevice(device_id=del_id))
                             if success:
@@ -318,8 +377,23 @@ def render_network_page() -> None:
             # Form Hapus Link
             with st.expander(":material/link_off: Hapus Link"):
                 if state.links:
+                    def _format_link_option(link_id: str) -> str:
+                        lk = next((l for l in state.links if l.id == link_id), None)
+                        if not lk:
+                            return link_id
+                        dev_a = iface_to_dev.get(lk.interface_a)
+                        dev_b = iface_to_dev.get(lk.interface_b)
+                        na = dev_a.name if dev_a else lk.interface_a
+                        nb = dev_b.name if dev_b else lk.interface_b
+                        return f"{lk.id}: {na} ({lk.interface_a}) <-> {nb} ({lk.interface_b})"
+
                     with st.form("form_del_link"):
-                        sel_link_del = st.selectbox("Pilih Link:", options=[l.id for l in state.links], key="sel_del_link")
+                        sel_link_del = st.selectbox(
+                            "Pilih Link:",
+                            options=[l.id for l in state.links],
+                            format_func=_format_link_option,
+                            key="sel_del_link",
+                        )
                         if st.form_submit_button("Putus Link", use_container_width=True):
                             success, errors = apply_command(RemoveLink(link_id=sel_link_del))
                             if success:

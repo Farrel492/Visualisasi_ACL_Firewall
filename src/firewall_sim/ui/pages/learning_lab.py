@@ -23,7 +23,7 @@ def render_learning_lab_page() -> None:
     """Merender halaman skenario praktik terpandu Learning Lab."""
     render_simulation_banner()
     page_header(
-        title="Lab Belajar (Learning Lab)",
+        title="Lab Belajar",
         description="Eksplorasi konsep aturan firewall, urutan filter, dan diagnostik rute jaringan melalui skenario terpandu.",
     )
 
@@ -38,28 +38,28 @@ def render_learning_lab_page() -> None:
 
         for sc in scenarios:
             is_active = (curr_scen_id == sc.id)
-            active_badge = " ➔ [AKTIF DI WORKSPACE]" if is_active else ""
+            active_badge = " -> [AKTIF DI WORKSPACE]" if is_active else ""
 
             with st.container(border=True):
-                st.markdown(f"### 📘 {sc.title}{active_badge}")
-                st.markdown(f"**🎯 Tujuan Praktik:**\n\n{sc.objective}")
+                st.markdown(f"### {sc.title}{active_badge}")
+                st.markdown(f"**Tujuan Praktik:**\n\n{sc.objective}")
 
-                with st.expander("📝 Langkah-langkah Pembelajaran", expanded=False):
+                with st.expander(":material/format_list_numbered: Langkah-langkah Pembelajaran", expanded=False):
                     for idx, step in enumerate(sc.steps, 1):
                         st.markdown(f"{idx}. {step}")
 
-                st.markdown(f"**🔍 Hasil yang Diharapkan:** `{sc.expected_decision.value}` — *{sc.expected_result}*")
+                st.markdown(f"**Hasil yang Diharapkan:** `{sc.expected_decision.value}` — *{sc.expected_result}*")
 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    if st.button(f"📥 Muat ke Workspace", key=f"load_{sc.id}", type="primary" if is_active else "secondary", use_container_width=True):
+                    if st.button("Muat ke Workspace", icon=":material/download:", key=f"load_{sc.id}", type="primary" if is_active else "secondary", use_container_width=True):
                         new_state = sc.factory()
                         set_project_state(new_state)
                         st.toast(f"Skenario '{sc.title}' berhasil dimuat!")
                         st.rerun()
 
                 with col_btn2:
-                    if st.button(f"⚡ Jalankan Uji Langsung", key=f"run_{sc.id}", use_container_width=True):
+                    if st.button("Jalankan Uji Langsung", icon=":material/play_arrow:", key=f"run_{sc.id}", use_container_width=True):
                         sim_state = sc.factory() if not is_active else curr_state
                         res = simulate_packet(sim_state, sc.test_packet)
                         add_simulation_run(sc.test_packet, res)
@@ -69,9 +69,15 @@ def render_learning_lab_page() -> None:
                         st.caption(f"Alasan: {res.reason}")
 
                         if res.decision == sc.expected_decision:
-                            st.success(f"✅ Hasil pengujian SESUAI dengan target skenario ({sc.expected_decision.value})!")
+                            st.success(
+                                f"Hasil pengujian SESUAI dengan target skenario ({sc.expected_decision.value})!",
+                                icon=":material/check_circle:",
+                            )
                         else:
-                            st.warning(f"⚠️ Hasil pengujian ({res.decision.value}) berbeda dari target ({sc.expected_decision.value}).")
+                            st.warning(
+                                f"Hasil pengujian ({res.decision.value}) berbeda dari target ({sc.expected_decision.value}).",
+                                icon=":material/warning:",
+                            )
 
     with col_side:
         # Panduan & Langkah Berikutnya

@@ -18,7 +18,7 @@ from firewall_sim.ui.components import (
     render_error_box,
     render_simulation_banner,
 )
-from firewall_sim.ui.state import apply_command, get_state, get_ui_mode
+from firewall_sim.ui.state import apply_command, get_state, is_learning
 
 
 def _validate_ipv4_cidr_inline(cidr_str: str) -> tuple[bool, str]:
@@ -49,7 +49,7 @@ def render_device_config_page() -> None:
     """Merender halaman konfigurasi perangkat, interface, dan gateway."""
     render_simulation_banner()
     page_header(
-        title="Konfigurasi Perangkat & Interface",
+        title="Konfigurasi Perangkat",
         description="Atur penetapan alamat IP interface, status aktif/nonaktif, dan default gateway host.",
     )
 
@@ -168,7 +168,7 @@ def render_device_config_page() -> None:
 
                         with col_st:
                             st.markdown("**Status Antarmuka**")
-                            st_badge = "🟢 Aktif (Up)" if iface.enabled else "🔴 Nonaktif (Down)"
+                            st_badge = "Aktif (Up)" if iface.enabled else "Nonaktif (Down)"
                             st.markdown(f"Kondisi: **{st_badge}**")
 
                             toggle_label = "Nonaktifkan Interface" if iface.enabled else "Aktifkan Interface"
@@ -185,7 +185,7 @@ def render_device_config_page() -> None:
 
     with col_side:
         # Panel Panduan Edukasi
-        if get_ui_mode() == "Learning":
+        if is_learning():
             with st.container(border=True):
                 st.markdown("#### :material/school: Panduan Konfigurasi")
                 st.markdown(

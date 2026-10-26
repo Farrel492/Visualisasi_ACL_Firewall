@@ -21,7 +21,7 @@ def render_viz3d_page() -> None:
     """Merender panggung visualisasi 3D dengan replay paket per langkah."""
     render_simulation_banner()
     page_header(
-        title="Visualisasi Spasial 3D",
+        title="Visualisasi 3D",
         description="Amati topologi jaringan secara 3D dan putar ulang jalannya paket virtual langkah demi langkah.",
     )
 
@@ -30,23 +30,25 @@ def render_viz3d_page() -> None:
     positions = calculate_3d_positions(state)
 
     if not positions:
-        empty_state(
-            message="Belum ada perangkat dalam topologi. Buat perangkat di Topologi 2D terlebih dahulu.",
-            action_label="Buka Topologi 2D",
-            target_page_or_callback="network",
-            key="empty_viz3d_dev_btn",
-            icon=":material/view_in_ar:",
-        )
+        with st.container(key="viz3d_empty_dev_container"):
+            empty_state(
+                message="Belum ada perangkat dalam topologi. Buat perangkat di Topologi 2D terlebih dahulu.",
+                action_label="Buka Topologi 2D",
+                target_page_or_callback="network",
+                key="empty_viz3d_dev_btn",
+                icon=":material/view_in_ar:",
+            )
         return
 
     if not history:
-        empty_state(
-            message="Belum ada pengujian simulasi paket untuk direplay di panggung 3D. Jalankan simulasi paket virtual terlebih dahulu.",
-            action_label="Buka Simulasi Paket",
-            target_page_or_callback="packet_sim",
-            key="empty_viz3d_hist_btn",
-            icon=":material/send:",
-        )
+        with st.container(key="viz3d_empty_hist_container"):
+            empty_state(
+                message="Belum ada pengujian simulasi paket untuk direplay di panggung 3D. Jalankan simulasi paket virtual terlebih dahulu.",
+                action_label="Buka Simulasi Paket",
+                target_page_or_callback="packet_sim",
+                key="empty_viz3d_hist_btn",
+                icon=":material/send:",
+            )
         return
 
     # Pemilihan Sesi Uji (Default Otomatis: Uji Terbaru / index 0)
@@ -95,7 +97,7 @@ def render_viz3d_page() -> None:
                     ⬡ <b>Web Server</b> (Z=2)
                 </span>
                 <span class="fw-chip" style="background:#F59E0B22;border:1px solid #F59E0B;padding:2px 8px;border-radius:12px;font-size:0.8rem;color:#FBBF24;">
-                    🟡 <b>Posisi Paket Aktif</b>
+                    ● <b>Posisi Paket Aktif</b>
                 </span>
             </div>
             """,
@@ -107,12 +109,12 @@ def render_viz3d_page() -> None:
             with st.container(border=True):
                 cn1, cn2, cn3 = st.columns([1, 4, 1])
                 with cn1:
-                    if st.button("◀ Mundur", disabled=(curr_step <= 0), key=f"prev_{step_key}", use_container_width=True):
+                    if st.button("Mundur", icon=":material/arrow_back:", disabled=(curr_step <= 0), key=f"prev_{step_key}", use_container_width=True):
                         st.session_state[step_key] = max(0, curr_step - 1)
                         st.rerun()
 
                 with cn3:
-                    if st.button("Maju ▶", disabled=(curr_step >= total_frames - 1), key=f"next_{step_key}", use_container_width=True):
+                    if st.button("Maju", icon=":material/arrow_forward:", disabled=(curr_step >= total_frames - 1), key=f"next_{step_key}", use_container_width=True):
                         st.session_state[step_key] = min(total_frames - 1, curr_step + 1)
                         st.rerun()
 
@@ -255,7 +257,7 @@ def render_viz3d_page() -> None:
         )
 
         with st.container(border=True):
-            st.caption("💡 *Tahan klik kiri & geser mouse untuk rotasi/orbit kamera; scroll untuk zoom in/out.*")
+            st.caption("Tahan klik kiri & geser mouse untuk rotasi/orbit kamera; scroll untuk zoom in/out.")
             st.plotly_chart(fig, use_container_width=True)
 
     with col_panel:
@@ -269,14 +271,17 @@ def render_viz3d_page() -> None:
                 st.markdown(f"**Rule Cocok:** `{selected_res.matched_rule_id}`")
 
             if selected_res.decision == Decision.DROP:
-                st.warning("🛑 **Paket DROP**: Paket dihentikan dan dibuang di router. Replay tidak meneruskan paket ke subnet tujuan.")
+                st.warning(
+                    "**Paket DROP**: Paket dihentikan dan dibuang di router. Replay tidak meneruskan paket ke subnet tujuan.",
+                    icon=":material/cancel:",
+                )
 
         # Penjelasan Langkah Saat Ini
         with st.container(border=True):
             st.markdown("#### :material/step: Penjelasan Langkah Aktif")
             if active_frame:
                 st.markdown(f"**Langkah #{curr_step} dari {total_frames - 1}**")
-                st.markdown(f"📍 **Lokasi:** `{active_frame.device_id}`")
+                st.markdown(f"**Lokasi:** `{active_frame.device_id}`")
                 st.info(active_frame.description)
             else:
                 st.caption("Tidak ada frame langkah.")

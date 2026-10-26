@@ -31,11 +31,20 @@ GLOSSARY = {
 
 
 def render_simulation_banner() -> None:
-    """Menampilkan banner permanen bahwa seluruh aktivitas adalah simulasi virtual."""
-    st.warning(
-        "⚠️ **SIMULASI VIRTUAL**: Seluruh paket, aturan firewall, dan perangkat dalam aplikasi ini "
-        "adalah simulasi virtual. Tidak ada koneksi atau modifikasi terhadap perangkat jaringan nyata."
-    )
+    """Menampilkan banner ringkas satu baris bahwa seluruh aktivitas adalah simulasi virtual."""
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.info(
+            "Mode simulasi: tidak ada koneksi ke jaringan nyata.",
+            icon=":material/info:",
+        )
+    with col2:
+        with st.popover("Apa artinya?"):
+            st.markdown(
+                "Seluruh perangkat, interface, paket, dan aturan firewall dalam lab ini "
+                "berjalan murni dalam memori simulasi Python. Tidak ada perangkat fisik, "
+                "sistem operasi host, atau kartu jaringan nyata yang terpengaruh."
+            )
 
 
 def render_error_box(errors: List[str]) -> None:
@@ -48,31 +57,11 @@ def render_error_box(errors: List[str]) -> None:
 
 
 def page_header(title: str, description: Optional[str] = None) -> None:
-    """Standard page header with title, one-line purpose description, and status badges."""
+    """Standard page header with navigation-matching title and 1-sentence purpose description."""
     init_session_state()
-    state = get_state()
-    mode = get_ui_mode()
-    validation_errors = validate_topology(state)
-    is_valid = (len(validation_errors) == 0)
-
-    col1, col2 = st.columns([3, 2])
-    with col1:
-        st.title(title)
-        if description:
-            st.caption(description)
-
-    with col2:
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.badge(f"Rev #{state.config_revision}", icon=":material/tag:", color="blue")
-        with c2:
-            mode_icon = ":material/school:" if mode == "Learning" else ":material/work:"
-            st.badge(f"{mode}", icon=mode_icon, color="gray")
-        with c3:
-            if is_valid:
-                st.badge("Valid", icon=":material/check_circle:", color="green")
-            else:
-                st.badge("Warning", icon=":material/warning:", color="orange")
+    st.title(title)
+    if description:
+        st.caption(description)
 
 
 def card(content: str, *, icon: str = "", background: str = COLOR_SURFACE) -> None:
@@ -96,15 +85,15 @@ def status_badge(decision: Union[str, Decision], render: bool = False) -> str:
     val = decision.value if isinstance(decision, Decision) else str(decision).upper()
 
     color_map = {
-        "ACCEPT": ("green", ":material/check_circle:", COLOR_ALLOW, "🟢 ACCEPT (Lolos)"),
-        "DROP": ("red", ":material/cancel:", COLOR_DENY, "🔴 DROP (Ditolak)"),
-        "NO_ROUTE": ("orange", ":material/alt_route:", COLOR_AMBER, "⚠️ NO_ROUTE (Rute Kosong)"),
-        "INVALID_CONFIG": ("orange", ":material/error:", COLOR_AMBER, "❌ INVALID_CONFIG (Konfigurasi Salah)"),
-        "UNSUPPORTED_CASE": ("gray", ":material/help:", COLOR_MUTED, "❓ UNSUPPORTED (Kasus Belum Didukung)"),
+        "ACCEPT": ("green", ":material/check_circle:", COLOR_ALLOW, "ACCEPT (Lolos)"),
+        "DROP": ("red", ":material/cancel:", COLOR_DENY, "DROP (Ditolak)"),
+        "NO_ROUTE": ("orange", ":material/alt_route:", COLOR_AMBER, "NO_ROUTE (Rute Kosong)"),
+        "INVALID_CONFIG": ("orange", ":material/error:", COLOR_AMBER, "INVALID_CONFIG (Konfigurasi Salah)"),
+        "UNSUPPORTED_CASE": ("gray", ":material/help:", COLOR_MUTED, "UNSUPPORTED (Kasus Belum Didukung)"),
     }
 
     badge_color, badge_icon, hex_color, full_text = color_map.get(
-        val, ("gray", ":material/info:", COLOR_MUTED, f"ℹ️ {val}")
+        val, ("gray", ":material/info:", COLOR_MUTED, f"{val}")
     )
 
     if render:

@@ -44,7 +44,7 @@ def render_start_here_page() -> None:
 
         col_btn1, col_btn2, _ = st.columns([1.5, 1.5, 2])
         with col_btn1:
-            if st.button("🚀 Muat Demo Siap Pakai", key="btn_demo_load", type="primary", use_container_width=True):
+            if st.button("Muat Demo Siap Pakai", icon=":material/play_arrow:", key="btn_demo_load", type="primary", use_container_width=True):
                 ok, errs = load_demo_scenario()
                 if ok:
                     st.toast("Demo siap pakai berhasil dimuat! Cek hasil di Aturan, 3D, dan Log.")
@@ -52,7 +52,7 @@ def render_start_here_page() -> None:
                 else:
                     st.error(f"Gagal memuat demo: {errs}")
         with col_btn2:
-            if st.button("📁 Mulai dari Proyek Kosong", key="btn_empty_start", use_container_width=True):
+            if st.button("Mulai dari Proyek Kosong", icon=":material/note_add:", key="btn_empty_start", use_container_width=True):
                 reset_to_preset("empty")
                 clear_simulation_data()
                 st.toast("Proyek kosong siap dikonfigurasi.")

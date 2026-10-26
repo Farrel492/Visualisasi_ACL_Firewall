@@ -22,7 +22,7 @@ def render_cli_console_page() -> None:
     """Merender konsol terminal perintah CLI."""
     render_simulation_banner()
     page_header(
-        title="Konsol Terminal CLI",
+        title="Konsol CLI",
         description="Prompt konfigurasi interaktif terinspirasi sintaks Cisco/Packet Tracer dengan parser aman (tanpa subproses sistem).",
     )
 
@@ -87,11 +87,11 @@ def render_cli_console_page() -> None:
                 ("help", "Bantuan Sintaks"),
                 ("show interfaces", "Daftar Interface"),
                 ("show rules", "Daftar Aturan Firewall"),
-                ("test source=pc_a destination=server proto=tcp dport=80", "Uji Paket PC A ➔ Server :80"),
+                ("test source=pc_a destination=server proto=tcp dport=80", "Uji Paket PC A -> Server :80"),
             ]
 
             for cmd_str, desc in quick_cmds:
-                if st.button(f"👉 {cmd_str}", key=f"cmd_quick_{cmd_str.replace(' ', '_')[:24]}", use_container_width=True):
+                if st.button(cmd_str, icon=":material/play_arrow:", key=f"cmd_quick_{cmd_str.replace(' ', '_')[:24]}", use_container_width=True):
                     new_state, out_text, errors = parse_and_execute(state, cmd_str)
                     record_cli_interaction(cmd_str, out_text, errors)
                     if not errors:

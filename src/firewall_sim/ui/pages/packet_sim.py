@@ -22,7 +22,7 @@ from firewall_sim.ui.state import (
     add_simulation_run,
     get_simulation_history,
     get_state,
-    get_ui_mode,
+    is_learning,
 )
 from firewall_sim.ui.theme import (
     COLOR_ALLOW,
@@ -37,7 +37,7 @@ def render_packet_sim_page() -> None:
     """Merender halaman simulasi paket dan penelusuran jalur jaringan virtual."""
     render_simulation_banner()
     page_header(
-        title="Simulasi Paket & Evaluasi Jalur",
+        title="Simulasi Paket",
         description="Kirim paket virtual untuk menguji evaluasi firewall secara nyata dan menelusuri rute L2/L3.",
     )
 
@@ -53,7 +53,7 @@ def render_packet_sim_page() -> None:
             qc1, qc2, qc3 = st.columns(3)
 
             with qc1:
-                if st.button("🌐 PC A ➔ Server :80 (HTTP)", key="btn_quick_pca_web", use_container_width=True):
+                if st.button("PC A -> Server :80 (HTTP)", icon=":material/public:", key="btn_quick_pca_web", use_container_width=True):
                     pkt = PacketTest(
                         id=f"test_quick_web_{int(datetime.now().timestamp() * 1000)}",
                         source_device_id="pc_a",
@@ -67,11 +67,11 @@ def render_packet_sim_page() -> None:
                     )
                     res = simulate_packet(state, pkt)
                     add_simulation_run(pkt, res)
-                    st.toast("Uji PC A ➔ Server port 80 berhasil dijalankan!")
+                    st.toast("Uji PC A -> Server port 80 berhasil dijalankan!")
                     st.rerun()
 
             with qc2:
-                if st.button("🚫 PC B ➔ Server :80 (HTTP)", key="btn_quick_pcb_web", use_container_width=True):
+                if st.button("PC B -> Server :80 (HTTP)", icon=":material/block:", key="btn_quick_pcb_web", use_container_width=True):
                     pkt = PacketTest(
                         id=f"test_quick_pcb_{int(datetime.now().timestamp() * 1000)}",
                         source_device_id="pc_b",
@@ -85,11 +85,11 @@ def render_packet_sim_page() -> None:
                     )
                     res = simulate_packet(state, pkt)
                     add_simulation_run(pkt, res)
-                    st.toast("Uji PC B ➔ Server port 80 berhasil dijalankan!")
+                    st.toast("Uji PC B -> Server port 80 berhasil dijalankan!")
                     st.rerun()
 
             with qc3:
-                if st.button("🔄 PC A ➔ PC B (ICMP Ping)", key="btn_quick_pca_pcb", use_container_width=True):
+                if st.button("PC A -> PC B (ICMP Ping)", icon=":material/sync:", key="btn_quick_pca_pcb", use_container_width=True):
                     pkt = PacketTest(
                         id=f"test_quick_ping_{int(datetime.now().timestamp() * 1000)}",
                         source_device_id="pc_a",
@@ -103,7 +103,7 @@ def render_packet_sim_page() -> None:
                     )
                     res = simulate_packet(state, pkt)
                     add_simulation_run(pkt, res)
-                    st.toast("Uji PC A ➔ PC B ICMP Ping berhasil dijalankan!")
+                    st.toast("Uji PC A -> PC B ICMP Ping berhasil dijalankan!")
                     st.rerun()
 
         # Form Generator Paket Kustom
@@ -139,11 +139,16 @@ def render_packet_sim_page() -> None:
                         dst_custom_ip = st.text_input("IP Tujuan Manual:", placeholder="misal: 10.0.0.10", key="input_pkt_custom_ip")
 
                 with col2:
-                    proto_choice = st.selectbox("Protokol:", [Protocol.TCP, Protocol.UDP, Protocol.ICMP], key="sel_pkt_proto")
+                    proto_choice = st.selectbox(
+                        "Protokol:",
+                        [Protocol.TCP, Protocol.UDP, Protocol.ICMP],
+                        format_func=lambda p: p.value.upper(),
+                        key="sel_pkt_proto",
+                    )
                     src_port_val = st.number_input("Port Sumber (Ephemeral):", min_value=1024, max_value=65535, value=49152, key="input_pkt_sport")
                     dst_port_val = st.number_input("Port Tujuan:", min_value=1, max_value=65535, value=80, disabled=(proto_choice == Protocol.ICMP), key="input_pkt_dport")
 
-                if st.form_submit_button("🚀 Jalankan Simulasi Paket", type="primary", use_container_width=True):
+                if st.form_submit_button("Jalankan Simulasi Paket", icon=":material/send:", type="primary", use_container_width=True):
                     pkt = PacketTest(
                         id=f"test_{int(datetime.now().timestamp() * 1000)}",
                         source_device_id=src_dev_id,
@@ -199,8 +204,9 @@ def render_packet_sim_page() -> None:
                     # Pelabelan jika revisi konfigurasi telah berubah
                     if item.config_revision != state.config_revision:
                         st.warning(
-                            f"⚠️ **Konfigurasi sudah berubah**: Pengujian ini dilakukan pada Revisi #{item.config_revision}, "
-                            f"sedangkan konfigurasi aktif saat ini adalah Revisi #{state.config_revision}."
+                            f"**Konfigurasi sudah berubah**: Pengujian ini dilakukan pada Revisi #{item.config_revision}, "
+                            f"sedangkan konfigurasi aktif saat ini adalah Revisi #{state.config_revision}.",
+                            icon=":material/warning:",
                         )
 
                     c_b1, c_b2 = st.columns([3, 1])
@@ -214,14 +220,15 @@ def render_packet_sim_page() -> None:
 
                     if item.decision == Decision.ACCEPT:
                         st.info(
-                            "💡 **Catatan Kebijakan**: ACCEPT = lolos kebijakan simulasi firewall, bukan bukti service/daemon port pada tujuan aktif."
+                            "**Catatan Kebijakan**: ACCEPT = lolos kebijakan simulasi firewall, bukan bukti service/daemon port pada tujuan aktif.",
+                            icon=":material/info:",
                         )
 
                     # Trace Langkah Bernomor
                     with st.expander(f"Tampilkan Jejak Traversal ({len(item.trace)} langkah)", expanded=is_latest):
                         if item.trace:
                             for step in item.trace:
-                                act_lbl = f" ➔ **[{step.action}]**" if step.action else ""
+                                act_lbl = f" -> **[{step.action}]**" if step.action else ""
                                 st.markdown(f"{step.step_number}. `{step.device_id}`: {step.description}{act_lbl}")
                         else:
                             st.caption("Tidak ada langkah traversal.")
@@ -229,17 +236,17 @@ def render_packet_sim_page() -> None:
                     # Tombol Tindak Lanjut: Lihat di 3D dan Lihat di Log
                     col_act1, col_act2, _ = st.columns([1.5, 1.5, 3])
                     with col_act1:
-                        if st.button("🧊 Lihat di 3D", key=f"btn_3d_{item.test_id}", use_container_width=True):
+                        if st.button("Lihat di 3D", icon=":material/view_in_ar:", key=f"btn_3d_{item.test_id}", use_container_width=True):
                             st.session_state["nav_page"] = "viz3d"
                             st.rerun()
                     with col_act2:
-                        if st.button("📋 Lihat di Log", key=f"btn_log_{item.test_id}", use_container_width=True):
+                        if st.button("Lihat di Log", icon=":material/list_alt:", key=f"btn_log_{item.test_id}", use_container_width=True):
                             st.session_state["nav_page"] = "traffic_logs"
                             st.rerun()
 
     with col_side:
         # Panel Panduan Edukatif (Learning Mode)
-        if get_ui_mode() == "Learning":
+        if is_learning():
             with st.container(border=True):
                 st.markdown("#### :material/school: Konsep Traversal Paket")
                 st.markdown(

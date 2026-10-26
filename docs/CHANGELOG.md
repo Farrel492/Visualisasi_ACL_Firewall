@@ -4,6 +4,27 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ## [Unreleased]
 
+### 2026-10-26: Tahap R1 - Perbaikan Bug P0, Kejelasan Topologi, dan Eliminasi Emoji
+- **Added:**
+  - `docs/UI_AUDIT.md`: Dokumen audit antarmuka 31 item mencatat reproduksi bug, pesan error asli, dan verifikasi fitur interaktif.
+  - `src/firewall_sim/ui/assets/logo.svg` & `src/firewall_sim/ui/assets/icon.svg`: Asset visual SVG tanpa dependensi eksternal untuk integrasi `st.logo`.
+  - `tests/test_ui.py`: Penambahan pengujian verifikasi form CRUD topologi (`test_ui_topology_crud_actions`) dan perbedaan elemen mode Learning vs Professional (`test_ui_learning_vs_professional_mode_elements`).
+- **Changed:**
+  - `src/firewall_sim/ui/components.py`: Normalisasi `page_header(title, description)` agar menampilkan judul spesifik per halaman; penghapusan chip header yang membingungkan.
+  - `app.py`: Penambahan `st.logo()`, penyederhanaan banner sidebar ke satu baris `st.info` dengan popover penjelasan, pemindahan status revisi/topologi ke kartu status sidebar, dan eliminasi catatan duplikat di kaki sidebar.
+  - `.streamlit/config.toml`: Penambahan konfigurasi `toolbarMode = "minimal"` dan `gatherUsageStats = false` untuk menyembunyikan tombol deploy/menu berlebih.
+  - `src/firewall_sim/ui/state.py`: Penambahan helper `is_learning()` untuk mendeteksi mode edukatif.
+  - `src/firewall_sim/ui/pages/network.py`: Perbaikan form Tambah Perangkat dengan field input IP dan gateway untuk PC/Server (mencegah error HOST_MISSING_IP); perbaikan form Tambah Link dengan pesan informatif saat port penuh; pembersihan tampilan enum mentah `DeviceType.PC`.
+  - Seluruh halaman UI, teks, dan dokumentasi: Eliminasi total karakter emoji, digantikan dengan Material Symbols (`:material/name:`) atau styling CSS murni.
+- **Fixed:**
+  - Judul halaman seragam "Mulai di Sini" pada semua halaman kini menampilkan judul spesifik masing-masing halaman.
+  - Form Tambah Perangkat gagal menambah host karena ketiadaan input IP dan gateway.
+  - Tampilan enum mentah pada opsi pemilihan jenis perangkat.
+- **Impacted modules:** `app.py`, `.streamlit/config.toml`, `src/firewall_sim/ui/*`, `tests/test_ui.py`, `docs/*`.
+- **Tests performed:** `pytest` 77 passed in 11.10s (100% lulus).
+- **Known limitations:** Kesalahan browser pihak ketiga (seperti ekstensi auto-translate Google Translate yang menyebabkan error `removeChild` pada React DOM) tidak dapat direproduksi langsung pada pengujian headless.
+- **Next steps:** Tahap R2 - Redesain UI, alur kerja (workflow rail), penyederhanaan teks panduan, dan penghapusan kesan template AI.
+
 ### 2026-10-25: Tahap D - Regression Testing, Benchmarking, and Comprehensive Documentation
 - **Added:**
   - `tests/test_acceptance.py`: 14 pengujian penerimaan lengkap memetakan 1:1 ke PRD Bagian 12 (`test_T01` hingga `test_T14`), mencakup ACCEPT/DROP, rule order (first match wins), rule nonaktif, mutasi IP interface, sinkronisasi CLI & GUI, perutean NO_ROUTE, penolakan CIDR tidak valid (state tidak rusak), 3D replay berhenti di firewall, isolasi mode UI, pelabelan event DROP non-serangan, audit revisi atomik, dan keamanan parser CLI tanpa eksekusi subprocess.
@@ -19,7 +40,7 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ### 2026-10-25: Tahap C - Packet Simulation, 3D Visualization, Logs, Alerts, Learning Lab, and CLI Console
 - **Changed:**
-  - `src/firewall_sim/ui/pages/packet_sim.py`: Penambahan 3 tombol uji cepat (PC A ➔ Server Web, PC B ➔ Server Web, PC A ➔ PC B ICMP), kartu hasil evaluasi beraksen border kiri dengan warna sesuai keputusan (ACCEPT hijau, DROP merah, NO_ROUTE amber), headline tebal satu baris, badge status, tombol lompat ke 3D/Log, expander jejak bernomor, dan pelabelan revisi lama yang usang.
+  - `src/firewall_sim/ui/pages/packet_sim.py`: Penambahan 3 tombol uji cepat (PC A -> Server Web, PC B -> Server Web, PC A -> PC B ICMP), kartu hasil evaluasi beraksen border kiri dengan warna sesuai keputusan (ACCEPT hijau, DROP merah, NO_ROUTE amber), headline tebal satu baris, badge status, tombol lompat ke 3D/Log, expander jejak bernomor, dan pelabelan revisi lama yang usang.
   - `src/firewall_sim/ui/pages/viz3d_page.py`: Pemilihan otomatis hasil uji simulasi terbaru (index 0), tata letak berdampingan 2:1 antara panggung Scatter3d dan panel keputusan teks, chip legenda spasial (Router Z=0, Switch Z=1, PC/Server Z=2, Paket Z-pos), slider penelusuran langkah frame-by-frame, dan penegasan bahwa paket DROP berhenti di router.
   - `src/firewall_sim/ui/pages/traffic_logs.py`: Baris KPI ber-border, integrasi `st.dataframe` dengan `column_config` berbahasa Indonesia, `hide_index=True`, filter status dan pencarian IP, serta tautan navigasi.
   - `src/firewall_sim/ui/pages/alerts.py`: Mempertahankan teks peringatan standar bahwa penolakan (DROP) adalah kebijakan normal bukan otomatis serangan (PRD Bagian 11/12), toggle penandaan highlight, dan penataan kartu insiden.
@@ -74,7 +95,7 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
   - `src/firewall_sim/ui/pages/alerts.py`: Security Alert Center untuk peninjauan event DROP dengan teks peringatan permanen non-serangan dan toggle highlight.
   - `src/firewall_sim/ui/pages/learning_lab.py`: Halaman skenario interaktif dengan tombol muat otomatis dan pengujian target skenario.
   - `src/firewall_sim/ui/pages/overview.py`: Integrasi tombol unduh (simpan) dan unggah (muat) berkas JSON, metrik log, dan ringkasan alert.
-  - Sidebar Mode Switcher (`app.py`): Pilihan `🎓 Learning Mode` (panel penjelasan konsep edukatif) vs `💼 Professional Mode` (tampilan ringkas) yang tersimpan murni di `session_state` tanpa mengubah `ProjectState` (T11).
+  - Sidebar Mode Switcher (`app.py`): Pilihan Learning Mode (panel penjelasan konsep edukatif) vs Professional Mode (tampilan ringkas) yang tersimpan murni di `session_state` tanpa mengubah `ProjectState` (T11).
   - Unit & Integration Tests:
     - `tests/test_storage.py`: Round-trip serialisasi/deserialisasi JSON dan error handling berkas korup.
     - `tests/test_analytics.py`: Pengujian agregasi statistik, filter log, T12 non-serangan, dan T13 level versi log.

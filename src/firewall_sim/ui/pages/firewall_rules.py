@@ -24,14 +24,14 @@ from firewall_sim.ui.components import (
     render_error_box,
     render_simulation_banner,
 )
-from firewall_sim.ui.state import apply_command, get_state, get_ui_mode
+from firewall_sim.ui.state import apply_command, get_state, is_learning
 
 
 def render_firewall_rules_page() -> None:
     """Merender halaman manajemen aturan firewall dan kebijakan default."""
     render_simulation_banner()
     page_header(
-        title="Aturan Firewall & ACL",
+        title="Aturan Firewall",
         description="Definisikan kebijakan filter paket berbasis urutan (first matching terminal action wins) dan default policy per chain.",
     )
 
@@ -57,6 +57,7 @@ def render_firewall_rules_page() -> None:
                         act_choice = st.selectbox(
                             "Aksi Bawaan:",
                             [Action.ACCEPT, Action.DROP],
+                            format_func=lambda a: a.value.upper(),
                             index=0 if curr_act == Action.ACCEPT else 1,
                             key=f"sel_pol_{chain.value}",
                         )
@@ -71,7 +72,10 @@ def render_firewall_rules_page() -> None:
                                 render_error_box(errors)
 
         # Penjelasan Prinsip First Match Wins
-        st.info("ℹ️ **Prinsip Evaluasi**: Dievaluasi dari atas ke bawah; rule pertama yang cocok menang (*first matching rule wins*). Aturan yang nonaktif akan dilewati.")
+        st.info(
+            "**Prinsip Evaluasi**: Dievaluasi dari atas ke bawah; rule pertama yang cocok menang (*first matching rule wins*). Aturan yang nonaktif akan dilewati.",
+            icon=":material/info:",
+        )
 
         # 2. Daftar Aturan Firewall per Chain
         with st.container(border=True):
@@ -139,11 +143,11 @@ def render_firewall_rules_page() -> None:
 
                                     with cb2:
                                         # Tombol Naik / Turun
-                                        if st.button("▲ Naik", key=f"up_{r.id}", disabled=(r.order <= 1), use_container_width=True):
+                                        if st.button("Naik", icon=":material/arrow_upward:", key=f"up_{r.id}", disabled=(r.order <= 1), use_container_width=True):
                                             apply_command(MoveRule(rule_id=r.id, new_order=r.order - 1))
                                             st.rerun()
 
-                                        if st.button("▼ Turun", key=f"down_{r.id}", use_container_width=True):
+                                        if st.button("Turun", icon=":material/arrow_downward:", key=f"down_{r.id}", use_container_width=True):
                                             apply_command(MoveRule(rule_id=r.id, new_order=r.order + 1))
                                             st.rerun()
 
@@ -153,9 +157,24 @@ def render_firewall_rules_page() -> None:
             with st.form("form_add_rule"):
                 col_c1, col_c2, col_c3 = st.columns(3)
                 with col_c1:
-                    r_chain = st.selectbox("Pilih Chain", [Chain.FORWARD, Chain.INPUT, Chain.OUTPUT], key="sel_rule_chain")
-                    r_action = st.selectbox("Aksi Firewall", [Action.ACCEPT, Action.DROP], key="sel_rule_action")
-                    r_proto = st.selectbox("Protokol", [Protocol.TCP, Protocol.UDP, Protocol.ICMP, Protocol.ANY], key="sel_rule_proto")
+                    r_chain = st.selectbox(
+                        "Pilih Chain",
+                        [Chain.FORWARD, Chain.INPUT, Chain.OUTPUT],
+                        format_func=lambda c: c.value.upper(),
+                        key="sel_rule_chain",
+                    )
+                    r_action = st.selectbox(
+                        "Aksi Firewall",
+                        [Action.ACCEPT, Action.DROP],
+                        format_func=lambda a: a.value.upper(),
+                        key="sel_rule_action",
+                    )
+                    r_proto = st.selectbox(
+                        "Protokol",
+                        [Protocol.TCP, Protocol.UDP, Protocol.ICMP, Protocol.ANY],
+                        format_func=lambda p: p.value.upper(),
+                        key="sel_rule_proto",
+                    )
 
                 with col_c2:
                     r_src = st.text_input("Source IP / CIDR", placeholder="misal: 192.168.1.10/32 atau kosongkan", key="input_rule_src")
@@ -197,7 +216,7 @@ def render_firewall_rules_page() -> None:
 
     with col_side:
         # Panduan Edukasi (Khusus Learning Mode)
-        if get_ui_mode() == "Learning":
+        if is_learning():
             with st.container(border=True):
                 st.markdown("#### :material/school: Konsep Penting")
                 st.markdown(

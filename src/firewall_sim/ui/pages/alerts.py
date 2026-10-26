@@ -20,14 +20,15 @@ def render_alerts_page() -> None:
     """Merender dasbor Pusat Peringatan Keamanan."""
     render_simulation_banner()
     page_header(
-        title="Pusat Peringatan Keamanan (Alert Center)",
+        title="Pusat Peringatan",
         description="Pemantauan event penolakan paket firewall virtual dan peninjauan insiden kebijakan keamanan.",
     )
 
     # Catatan Permanen Sesuai AGENTS.md & PRD Bagian 11/12
     st.warning(
-        "🛡️ **CATATAN KEBIJAKAN KEAMANAN**: Penolakan paket (DROP) merupakan perilaku normal "
-        "dari kebijakan filter firewall dan **BUKAN OTOMATIS BERARTI SERANGAN / ANCAMAN (ATTACK)**."
+        "**CATATAN KEBIJAKAN KEAMANAN**: Penolakan paket (DROP) merupakan perilaku normal "
+        "dari kebijakan filter firewall dan **BUKAN OTOMATIS BERARTI SERANGAN / ANCAMAN (ATTACK)**.",
+        icon=":material/policy:",
     )
 
     events = get_security_events()
@@ -52,7 +53,7 @@ def render_alerts_page() -> None:
 
         if not events:
             empty_state(
-                message="🟢 Tidak ada event penolakan atau alert keamanan yang tercatat saat ini. Event akan otomatis terbentuk setiap kali ada paket simulasi yang ditolak (DROP).",
+                message="Tidak ada event penolakan atau alert keamanan yang tercatat saat ini. Event akan otomatis terbentuk setiap kali ada paket simulasi yang ditolak (DROP).",
                 action_label="Jalankan Simulasi Paket",
                 target_page_or_callback="packet_sim",
                 key="empty_alerts_btn",
@@ -60,7 +61,7 @@ def render_alerts_page() -> None:
             )
         else:
             for idx, ev in enumerate(events):
-                sev_icon = "🔴" if ev.severity == "warning" else "ℹ️"
+                sev_icon = ":material/warning:" if ev.severity == "warning" else ":material/info:"
                 with st.expander(
                     f"{sev_icon} [{ev.severity.upper()}] Event #{ev.id} — {ev.timestamp.strftime('%H:%M:%S')}",
                     expanded=(idx == 0),

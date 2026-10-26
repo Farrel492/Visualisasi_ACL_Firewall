@@ -62,7 +62,7 @@ def test_ui_mode_toggle_preserves_state():
     assert at.session_state[KEY_MODE] == "Learning"
 
     mode_radio = at.sidebar.radio(key="ui_mode_selector")
-    mode_radio.set_value("💼 Professional Mode").run()
+    mode_radio.set_value("Mode Profesional").run()
     assert not at.exception
     assert at.session_state[KEY_MODE] == "Professional"
 
@@ -158,7 +158,7 @@ def test_ui_3d_viz_renders_with_history():
     viz_btn.click().run()
     assert not at.exception
     assert len(at.title) >= 1
-    assert at.title[0].value == "Visualisasi Spasial 3D"
+    assert at.title[0].value == "Visualisasi 3D"
 
 
 def test_ui_learning_lab_interaction():
@@ -178,22 +178,25 @@ def test_ui_learning_lab_interaction():
 
 
 def test_ui_all_pages_have_headers_and_no_raw_dict():
-    """C4: Menguji bahwa setiap halaman memiliki page_header, tidak exception, dan tidak menampilkan dict mentah."""
-    all_pages = [
-        "start_here",
-        "overview",
-        "network",
-        "device_config",
-        "firewall_rules",
-        "packet_sim",
-        "viz3d",
-        "traffic_logs",
-        "alerts",
-        "learning_lab",
-        "cli_console",
-    ]
+    """R1.1 & R1.10: Menguji bahwa setiap halaman memiliki page_header dengan judul sama dengan label navigasi, bebas dict mentah, bebas enum mentah, dan bebas emoji."""
+    import re
+    emoji_pattern = re.compile(r"[\U00010000-\U0010ffff]|[\u2600-\u27bf]|[\u2300-\u23ff]|[\u2b50-\u2b55]|[\u203c\u2049\u2139\u2194-\u21aa]")
 
-    for p in all_pages:
+    nav_labels = {
+        "start_here": "Mulai di Sini",
+        "overview": "Dasbor",
+        "network": "Topologi 2D",
+        "device_config": "Konfigurasi Perangkat",
+        "firewall_rules": "Aturan Firewall",
+        "packet_sim": "Simulasi Paket",
+        "viz3d": "Visualisasi 3D",
+        "traffic_logs": "Log Trafik",
+        "alerts": "Pusat Peringatan",
+        "learning_lab": "Lab Belajar",
+        "cli_console": "Konsol CLI",
+    }
+
+    for p, expected_title in nav_labels.items():
         at = AppTest.from_file(APP_PATH, default_timeout=10)
         at.run()
         at.session_state[KEY_NAV_PAGE] = p
@@ -201,12 +204,17 @@ def test_ui_all_pages_have_headers_and_no_raw_dict():
 
         assert not at.exception, f"Exception terjadi saat merender halaman: {p}"
         assert len(at.title) >= 1, f"Halaman '{p}' tidak memiliki judul st.title (page_header)"
+        assert at.title[0].value == expected_title, f"Judul halaman '{p}' ({at.title[0].value}) tidak sama dengan label navigasi ({expected_title})"
         assert len(at.json) == 0, f"Halaman '{p}' menampilkan widget st.json mentah"
 
-        # Periksa bahwa tidak ada markdown yang menampilkan repr dict mentah "{'..."
+        # Periksa tidak ada string dict mentah, enum mentah, atau emoji
         for md in at.markdown:
             val = md.value.strip()
-            assert not (val.startswith("{'") and val.endswith("}")), f"Ditemukan string dict mentah di markdown halaman '{p}': {val[:40]}"
+            assert not (val.startswith("{'") and val.endswith("}")), f"Ditemukan string dict mentah di markdown '{p}': {val[:40]}"
+            for raw_enum in ["DeviceType.", "Action.", "Chain.", "Protocol."]:
+                assert raw_enum not in val, f"Ditemukan enum mentah '{raw_enum}' pada markdown halaman '{p}': {val[:60]}"
+            emojis_found = emoji_pattern.findall(val)
+            assert not emojis_found, f"Ditemukan emoji {emojis_found} pada markdown halaman '{p}'"
 
 
 def test_ui_empty_states_have_action_buttons():
@@ -246,4 +254,72 @@ def test_ui_empty_states_have_action_buttons():
     assert not at.exception
     net_empty_btns = [b for b in at.button if b.key == "empty_network_btn"]
     assert len(net_empty_btns) == 1, "Tombol aksi empty state network tidak ditemukan"
+
+
+def test_ui_topology_crud_actions():
+    """R1.8: Menguji 4 aksi CRUD topologi (tambah perangkat, hubungkan link, putus link, hapus perangkat)."""
+    from firewall_sim.core.models import DeviceType, Interface
+    from firewall_sim.config.service import AddDevice, AddLink, RemoveDevice, RemoveLink, update_config
+
+    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at.run()
+
+    # 1. Tambah perangkat Switch baru untuk port bebas tambahan
+    state = at.session_state[KEY_STATE]
+    state, errs_sw = update_config(state, AddDevice(name="Switch 2", type=DeviceType.SWITCH))
+    assert not errs_sw, f"Gagal menambah Switch: {errs_sw}"
+    at.session_state[KEY_STATE] = state
+
+    # 2. Tambah PC C dengan IP dan gateway valid
+    iface_c = Interface(id="if_pc_c", device_id="pc_c", name="eth0", ipv4_cidr="192.168.1.35/24", enabled=True)
+    state, errs_pc = update_config(
+        state,
+        AddDevice(name="PC C", type=DeviceType.PC, device_id="pc_c", interfaces=(iface_c,), default_gateway="192.168.1.1")
+    )
+    assert not errs_pc, f"Gagal menambah PC: {errs_pc}"
+    at.session_state[KEY_STATE] = state
+
+    # 3. Hubungkan link antara PC C dan Switch 2
+    state, errs_link = update_config(state, AddLink(interface_a="if_pc_c", interface_b="if_switch_2_p1"))
+    assert not errs_link, f"Gagal menghubungkan link: {errs_link}"
+    at.session_state[KEY_STATE] = state
+
+    # 4. Putus link
+    created_link_id = [l.id for l in at.session_state[KEY_STATE].links if l.interface_a == "if_pc_c"][0]
+    state, errs_del_link = update_config(state, RemoveLink(link_id=created_link_id))
+    assert not errs_del_link, f"Gagal menghapus link: {errs_del_link}"
+    at.session_state[KEY_STATE] = state
+
+    # 5. Hapus perangkat PC C
+    state, errs_del_dev = update_config(state, RemoveDevice(device_id="pc_c"))
+    assert not errs_del_dev, f"Gagal menghapus perangkat: {errs_del_dev}"
+    at.session_state[KEY_STATE] = state
+
+
+def test_ui_learning_vs_professional_mode_elements():
+    """R1.7: Menguji bahwa elemen edukasi ditampilkan pada Learning Mode dan disembunyikan pada Professional Mode."""
+    # 1. Learning Mode
+    at_learn = AppTest.from_file(APP_PATH, default_timeout=10)
+    at_learn.run()
+    at_learn.session_state[KEY_NAV_PAGE] = "firewall_rules"
+    at_learn.run()
+    assert not at_learn.exception
+    # Harus ada panel 'Konsep Penting'
+    learn_mds = [m.value for m in at_learn.markdown if "Konsep Penting" in m.value]
+    assert len(learn_mds) >= 1, "Panel konsep edukasi tidak ditemukan pada Learning Mode"
+
+    # 2. Professional Mode
+    at_pro = AppTest.from_file(APP_PATH, default_timeout=10)
+    at_pro.run()
+    at_pro.sidebar.radio(key="ui_mode_selector").set_value("Mode Profesional").run()
+    at_pro.session_state[KEY_NAV_PAGE] = "firewall_rules"
+    at_pro.run()
+    assert not at_pro.exception
+    # Panel 'Konsep Penting' harus disembunyikan pada Professional Mode
+    pro_mds = [m.value for m in at_pro.markdown if "Konsep Penting" in m.value]
+    assert len(pro_mds) == 0, "Panel konsep edukasi seharusnya disembunyikan pada Professional Mode"
+
+    # State identik
+    assert at_learn.session_state[KEY_STATE] == at_pro.session_state[KEY_STATE]
+
 

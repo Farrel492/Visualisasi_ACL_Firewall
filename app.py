@@ -39,9 +39,15 @@ from firewall_sim.ui.state import (
 
 st.set_page_config(
     page_title="Firewall Simulator",
-    page_icon="🛡️",
+    page_icon=":material/shield:",
     layout="wide",
 )
+
+# Integrasi Logo dan Icon untuk Sidebar (mendukung mode terbuka & ciut)
+LOGO_PATH = SRC_DIR / "firewall_sim" / "ui" / "assets" / "logo.svg"
+ICON_PATH = SRC_DIR / "firewall_sim" / "ui" / "assets" / "icon.svg"
+if LOGO_PATH.exists() and ICON_PATH.exists():
+    st.logo(str(LOGO_PATH), icon_image=str(ICON_PATH))
 
 # Inisialisasi ProjectState dalam session state
 init_session_state()
@@ -52,39 +58,49 @@ ALIAS_MAP = {
     "rules": "firewall_rules",
     "devices": "device_config",
     "cli": "cli_console",
+    "dashboard": "overview",
 }
 current_nav = get_nav_page()
 if current_nav in ALIAS_MAP:
     current_nav = ALIAS_MAP[current_nav]
     set_nav_page(current_nav)
 
-# Sidebar: Judul & Status Aplikasi
-st.sidebar.markdown("### 🛡️ Firewall Simulator")
+# Status Ringkas Konfigurasi pada Sidebar
 current_state = get_state()
 validation_errors = validate_topology(current_state)
 is_valid = (len(validation_errors) == 0)
+curr_mode = get_ui_mode()
 
-# Status Ringkas Konfigurasi
 with st.sidebar.container(border=True):
-    col_rev, col_val = st.columns(2)
-    with col_rev:
-        st.badge(f"Rev #{current_state.config_revision}", icon=":material/tag:", color="blue")
-    with col_val:
-        if is_valid:
-            st.badge("Valid", icon=":material/check_circle:", color="green")
-        else:
-            st.badge("Error", icon=":material/warning:", color="red")
-
+    st.markdown("#### :material/info: Status Sistem")
+    st.caption(
+        f"**Revisi konfigurasi: #{current_state.config_revision}**",
+        help="Revisi konfigurasi: nomor atomik yang naik setiap perubahan; hasil uji lama ditandai usang.",
+    )
+    if is_valid:
+        st.caption(
+            "**Topologi: valid**",
+            help="Topologi: valid / tidak ada konflik subnet, IP duplikat, atau link putus.",
+        )
+    else:
+        st.caption(
+            f"**Topologi: ada masalah ({len(validation_errors)} error)**",
+            help=f"Topologi: terdeteksi masalah integritas konfigurasi: {validation_errors[0]}",
+        )
+    mode_label = "Belajar" if curr_mode == "Learning" else "Profesional"
+    st.caption(
+        f"**Mode: {mode_label}**",
+        help="Mode: Belajar (panduan konsep & hint) / Profesional (tata letak padat & teknis).",
+    )
     st.caption(
         f":material/devices: {len(current_state.devices)} Perangkat &bull; "
         f":material/security: {len(current_state.rules)} Rule"
     )
 
 # Pilihan Mode Antarmuka (Learning vs Professional)
-curr_mode = get_ui_mode()
 mode_choice = st.sidebar.radio(
     "Mode Antarmuka:",
-    ["🎓 Learning Mode", "💼 Professional Mode"],
+    ["Mode Belajar (Learning)", "Mode Profesional"],
     index=0 if curr_mode == "Learning" else 1,
     key="ui_mode_selector",
 )
@@ -99,7 +115,7 @@ NAV_GROUPS = [
         "Mulai",
         [
             ("nav_start_here", "start_here", "Mulai di Sini", ":material/explore:"),
-            ("nav_overview", "overview", "Ringkasan Lab", ":material/dashboard:"),
+            ("nav_overview", "overview", "Dasbor", ":material/dashboard:"),
         ],
     ),
     (
@@ -141,10 +157,6 @@ for group_title, items in NAV_GROUPS:
         ):
             set_nav_page(page_id)
             st.rerun()
-
-st.sidebar.caption(
-    "⚠️ **Simulasi Virtual**: Semua paket dan aturan firewall berjalan di lingkungan simulasi."
-)
 
 # Router Halaman
 active_page = get_nav_page()

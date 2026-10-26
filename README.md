@@ -48,8 +48,13 @@ Aplikasi menyediakan terminal CLI interaktif dengan tata bahasa berikut:
 - `access-list <permit|deny> <proto> <src|any> <dst|any> [eq <port>]` : Translasi ACL ke aturan kanonik chain forward.
 - `test <src_device> <dst_device_or_ip> <tcp|udp|icmp> [port]` : Simulasi paket virtual via CLI.
 
+## Diagnostik Browser & Pengaturan Toolbar
+- **Terjemahan Otomatis Browser**: Harap nonaktifkan fitur terjemahan otomatis peramban (seperti Google Translate / Edge Translate) untuk alamat `localhost`. Modifikasi DOM teks oleh ekstensi terjemahan peramban pada elemen React Streamlit dapat memicu galat runtime peramban `NotFoundError: Failed to execute 'removeChild' on 'Node'`.
+- **Mode Toolbar Pengembang**: Toolbar bawaan Streamlit secara default diatur ke `toolbarMode = "minimal"` pada `.streamlit/config.toml` guna menyembunyikan tombol Deploy dan menu bawaan yang mengganggu presentasi. Jika Anda memerlukan menu developer saat debugging lokal, ubah menjadi `toolbarMode = "developer"`.
+
 ## Dokumentasi Lengkap
-- `docs/USER_GUIDE.md`: Panduan pengguna, skrip demo 10 menit, dan glosarium
+- `docs/UI_AUDIT.md`: Laporan audit antarmuka, reproduksi error topologi, dan matriks fungsionalitas
+- `docs/USER_GUIDE.md`: Panduan pengguna, alur kerja, skrip demo 10 menit, dan glosarium
 - `docs/TEST_REPORT.md`: Laporan pengujian kriteria penerimaan T01-T14 & benchmark kinerja
 - `docs/PRD.md`: Spesifikasi produk
 - `docs/PROJECT_CONTEXT.md`: Status proyek terkini
@@ -58,4 +63,4 @@ Aplikasi menyediakan terminal CLI interaktif dengan tata bahasa berikut:
 - `AGENTS.md`: Aturan untuk AI agent
 
 ## Status
-Fitur MVP Lengkap & Redesain UI Selesai (Router `nav_page`, Sidebar 4 Grup, Mulai di Sini Stepper 5 Langkah, 75 Pytest Passed). Lihat `docs/PROJECT_CONTEXT.md`.
+Fitur MVP Lengkap, Audit & Redesain UI Tahap R1 Selesai (77 Pytest Passed, 0 Failed, Bebas Emoji, Toolbar Minimal, Sidebar SVG Logo, Form Topologi Sempurna). Lihat `docs/PROJECT_CONTEXT.md`.

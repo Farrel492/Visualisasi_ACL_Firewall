@@ -67,6 +67,11 @@ def get_ui_mode() -> str:
     return st.session_state[KEY_MODE]
 
 
+def is_learning() -> bool:
+    """Helper tunggal untuk mengecek apakah mode aktif adalah Learning Mode."""
+    return get_ui_mode() == "Learning"
+
+
 def set_ui_mode(mode: str) -> None:
     """Mengubah mode UI tanpa memutasi ProjectState."""
     init_session_state()

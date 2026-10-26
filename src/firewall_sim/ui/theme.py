@@ -38,18 +38,17 @@ FONT_SIZE_SM = "0.875rem"
 FONT_SIZE_LG = "1.125rem"
 
 def get_decision_badge(decision: Decision) -> str:
-    """Return a textual badge with icon for a simulation Decision.
-    The badge includes both colour‑semantic icon and description; it does
-    not rely on UI colour alone, satisfying accessibility requirements.
+    """Return a textual badge for a simulation Decision without emojis.
+    The badge includes text and description satisfying accessibility requirements.
     """
     if decision == Decision.ACCEPT:
-        return "🟢 ACCEPT (Lolos Kebijakan)"
+        return "[ACCEPT] Lolos Kebijakan"
     if decision == Decision.DROP:
-        return "🔴 DROP (Ditolak Firewall)"
+        return "[DROP] Ditolak Firewall"
     if decision == Decision.NO_ROUTE:
-        return "⚠️ NO_ROUTE (Rute Tidak Ditemukan)"
+        return "[NO_ROUTE] Rute Tidak Ditemukan"
     if decision == Decision.INVALID_CONFIG:
-        return "❌ INVALID_CONFIG (Konfigurasi Tidak Valid)"
+        return "[INVALID_CONFIG] Konfigurasi Tidak Valid"
     if decision == Decision.UNSUPPORTED_CASE:
-        return "❓ UNSUPPORTED_CASE (Kasus Belum Didukung)"
-    return f"ℹ️ {decision.value}"
+        return "[UNSUPPORTED_CASE] Kasus Belum Didukung"
+    return f"[{decision.value}]"
