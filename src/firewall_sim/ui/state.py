@@ -3,13 +3,15 @@
 ATURAN ARSITEKTUR:
 - Satu-satunya jembatan antara antarmuka Streamlit dan engine/ConfigService.
 - Halaman UI DILARANG memutasi state secara langsung; semua mutasi wajib lewat apply_command.
-- Mode UI ("Learning" vs "Professional") disimpan murni di session_state dan tidak menyentuh ProjectState (T11).
 """
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+import hashlib
+from typing import Any, Dict, List, Optional, Tuple
 import streamlit as st
+
+from firewall_sim.ui import workspace as ws
 
 from firewall_sim.config.service import AddRule, ConfigCommand, update_config
 from firewall_sim.core.alerts import AlertPolicy, derive_alerts
@@ -34,48 +36,191 @@ KEY_PAIRS = "fw_sim_pairs"
 KEY_TRAFFIC_LOGS = "fw_sim_traffic_logs"
 KEY_EVENTS = "fw_sim_events"
 KEY_CLI_LOG = "fw_sim_cli_log"
-KEY_MODE = "fw_sim_ui_mode"
 KEY_ALERT_HIGHLIGHT = "fw_sim_alert_highlight"
 KEY_NAV_PAGE = "nav_page"
+KEY_TOKEN = "fw_sim_workspace_token"
+KEY_LAYOUT = "fw_sim_layout"
+KEY_CABLES = "fw_sim_cables"
+KEY_RAIL_OPEN = "fw_sim_rail_open"
+KEY_LAST_SAVED = "fw_sim_last_saved_hash"
+KEY_NOTICE = "fw_sim_notice"
+KEY_SELECTED_DEVICE = "fw_sim_selected_device"
+KEY_CLI_DEVICE = "fw_sim_cli_device"
+KEY_CLI_MODE = "fw_sim_cli_mode"
+
+
+def _fresh_defaults() -> None:
+    st.session_state[KEY_NAV_PAGE] = "start_here"
+    st.session_state[KEY_STATE] = default_lab()
+    st.session_state[KEY_HISTORY] = []
+    st.session_state[KEY_PAIRS] = []
+    st.session_state[KEY_TRAFFIC_LOGS] = []
+    st.session_state[KEY_EVENTS] = []
+    st.session_state[KEY_CLI_LOG] = []
+    st.session_state[KEY_ALERT_HIGHLIGHT] = True
+    st.session_state[KEY_LAYOUT] = {}
+    st.session_state[KEY_CABLES] = {}
+    st.session_state[KEY_RAIL_OPEN] = True
+    st.session_state[KEY_SELECTED_DEVICE] = None
+    st.session_state[KEY_CLI_DEVICE] = None
+    st.session_state[KEY_CLI_MODE] = "user"
+
+
+def _apply_snapshot(snap: Dict[str, Any]) -> None:
+    st.session_state[KEY_STATE] = snap["state"]
+    st.session_state[KEY_PAIRS] = list(snap["pairs"])
+    st.session_state[KEY_HISTORY] = [r for _, r in snap["pairs"]]
+    st.session_state[KEY_TRAFFIC_LOGS] = list(snap["logs"])
+    st.session_state[KEY_EVENTS] = list(snap["events"])
+    st.session_state[KEY_CLI_LOG] = list(snap["cli_log"])
+    st.session_state[KEY_MODE] = snap.get("mode", "Learning")
+    st.session_state[KEY_LAYOUT] = dict(snap.get("layout", {}))
+    st.session_state[KEY_CABLES] = dict(snap.get("cables", {}))
 
 
 def init_session_state() -> None:
-    """Menginisialisasi session state jika belum ada."""
-    if KEY_NAV_PAGE not in st.session_state:
-        st.session_state[KEY_NAV_PAGE] = "start_here"
-    if KEY_STATE not in st.session_state:
-        st.session_state[KEY_STATE] = default_lab()
-    if KEY_HISTORY not in st.session_state:
-        st.session_state[KEY_HISTORY] = []
-    if KEY_PAIRS not in st.session_state:
-        st.session_state[KEY_PAIRS] = []
-    if KEY_TRAFFIC_LOGS not in st.session_state:
-        st.session_state[KEY_TRAFFIC_LOGS] = []
-    if KEY_EVENTS not in st.session_state:
-        st.session_state[KEY_EVENTS] = []
-    if KEY_CLI_LOG not in st.session_state:
-        st.session_state[KEY_CLI_LOG] = []
-    if KEY_MODE not in st.session_state:
-        st.session_state[KEY_MODE] = "Learning"
-    if KEY_ALERT_HIGHLIGHT not in st.session_state:
-        st.session_state[KEY_ALERT_HIGHLIGHT] = True
+    """Menyiapkan session state. Pada sesi baru, workspace lama dimuat dari token di URL."""
+    if KEY_STATE in st.session_state:
+        return
+
+    _fresh_defaults()
+    token = None
+    try:
+        token = st.query_params.get("w")
+    except Exception:  # noqa: BLE001
+        token = None
+
+    restored = False
+    if ws.is_valid_token(token):
+        snap, errors = ws.read_snapshot(token)
+        if snap is not None:
+            _apply_snapshot(snap)
+            restored = True
+            st.session_state[KEY_NOTICE] = "Pekerjaan sebelumnya dipulihkan."
+        elif errors:
+            st.session_state[KEY_NOTICE] = "Workspace lama rusak, memulai dari awal."
+    if not ws.is_valid_token(token):
+        token = ws.new_token()
+    st.session_state[KEY_TOKEN] = token
+    try:
+        st.query_params["w"] = token
+    except Exception:  # noqa: BLE001
+        pass
+    if not restored:
+        ws.cleanup_old()
 
 
-def get_ui_mode() -> str:
-    """Mengambil mode UI saat ini ('Learning' atau 'Professional')."""
+def snapshot_now() -> Dict[str, Any]:
+    return {
+        "state": st.session_state[KEY_STATE],
+        "pairs": list(st.session_state[KEY_PAIRS]),
+        "logs": list(st.session_state[KEY_TRAFFIC_LOGS]),
+        "events": list(st.session_state[KEY_EVENTS]),
+        "cli_log": list(st.session_state[KEY_CLI_LOG]),
+        "mode": st.session_state[KEY_MODE],
+        "layout": dict(st.session_state[KEY_LAYOUT]),
+        "cables": dict(st.session_state[KEY_CABLES]),
+    }
+
+
+def persist_workspace() -> None:
+    """Simpan workspace bila ada perubahan sejak penyimpanan terakhir. Dipanggil tiap akhir run."""
     init_session_state()
-    return st.session_state[KEY_MODE]
+    try:
+        snap = snapshot_now()
+        # buang kabel/posisi milik objek yang sudah dihapus
+        link_ids = {l.id for l in snap["state"].links}
+        dev_ids = {d.id for d in snap["state"].devices}
+        snap["cables"] = {k: v for k, v in snap["cables"].items() if k in link_ids}
+        snap["layout"] = {k: v for k, v in snap["layout"].items() if k in dev_ids}
+        text = ws.snapshot_to_json(snap)
+        digest = hashlib.sha1(text.encode("utf-8")).hexdigest()
+        # saved_at selalu berubah, jadi hash dihitung tanpa field itu
+        body = text.split('"saved_at"')[0] + text.split('"project"', 1)[1]
+        digest = hashlib.sha1(body.encode("utf-8")).hexdigest()
+        if st.session_state.get(KEY_LAST_SAVED) != digest:
+            if ws.write_snapshot(st.session_state[KEY_TOKEN], snap):
+                st.session_state[KEY_LAST_SAVED] = digest
+    except Exception:  # noqa: BLE001
+        # Penyimpanan tidak boleh menjatuhkan aplikasi.
+        pass
 
 
-def is_learning() -> bool:
-    """Helper tunggal untuk mengecek apakah mode aktif adalah Learning Mode."""
-    return get_ui_mode() == "Learning"
+def new_workspace() -> None:
+    """Mulai workspace baru dengan token baru (workspace lama tetap tersimpan di berkas)."""
+    for key in list(st.session_state.keys()):
+        if key.startswith("fw_sim_") or key == KEY_NAV_PAGE:
+            del st.session_state[key]
+    st.session_state[KEY_NOTICE] = ""
+    try:
+        st.query_params.clear()
+    except Exception:  # noqa: BLE001
+        pass
 
 
-def set_ui_mode(mode: str) -> None:
-    """Mengubah mode UI tanpa memutasi ProjectState."""
+def pop_notice() -> str:
     init_session_state()
-    st.session_state[KEY_MODE] = mode
+    msg = st.session_state.get(KEY_NOTICE, "")
+    st.session_state[KEY_NOTICE] = ""
+    return msg or ""
+
+
+# --- layout, kabel, pemilihan perangkat -------------------------------------------------
+
+
+def get_layout() -> Dict[str, List[float]]:
+    init_session_state()
+    return dict(st.session_state[KEY_LAYOUT])
+
+
+def set_layout(positions: Dict[str, List[float]]) -> None:
+    init_session_state()
+    clean = {}
+    for dev_id, xy in positions.items():
+        try:
+            clean[str(dev_id)] = [round(float(xy[0]), 1), round(float(xy[1]), 1)]
+        except (TypeError, ValueError, IndexError):
+            continue
+    merged = dict(st.session_state[KEY_LAYOUT])
+    merged.update(clean)
+    st.session_state[KEY_LAYOUT] = merged
+
+
+def reset_layout() -> None:
+    init_session_state()
+    st.session_state[KEY_LAYOUT] = {}
+
+
+def get_cables() -> Dict[str, str]:
+    init_session_state()
+    return dict(st.session_state[KEY_CABLES])
+
+
+def set_cable(link_id: str, kind: str) -> None:
+    init_session_state()
+    cables = dict(st.session_state[KEY_CABLES])
+    cables[link_id] = kind
+    st.session_state[KEY_CABLES] = cables
+
+
+def get_selected_device() -> Optional[str]:
+    init_session_state()
+    return st.session_state.get(KEY_SELECTED_DEVICE)
+
+
+def set_selected_device(dev_id: Optional[str]) -> None:
+    init_session_state()
+    st.session_state[KEY_SELECTED_DEVICE] = dev_id
+
+
+def is_rail_open() -> bool:
+    init_session_state()
+    return bool(st.session_state.get(KEY_RAIL_OPEN, True))
+
+
+def toggle_rail() -> None:
+    init_session_state()
+    st.session_state[KEY_RAIL_OPEN] = not is_rail_open()
 
 
 def get_state() -> ProjectState:
@@ -123,6 +268,8 @@ def reset_to_preset(preset_name: str) -> None:
         st.session_state[KEY_STATE] = empty_project()
     else:
         st.session_state[KEY_STATE] = default_lab()
+    st.session_state[KEY_LAYOUT] = {}
+    st.session_state[KEY_CABLES] = {}
 
 
 def add_simulation_run(packet: PacketTest, result: SimulationResult) -> None:
@@ -216,6 +363,28 @@ def clear_simulation_data() -> None:
     st.session_state[KEY_PAIRS] = []
     st.session_state[KEY_TRAFFIC_LOGS] = []
     st.session_state[KEY_EVENTS] = []
+    st.session_state[KEY_CLI_LOG] = []
+
+
+def clear_test_history() -> None:
+    """Hapus riwayat uji (hasil + pasangan paket) tanpa menyentuh log dan peringatan."""
+    init_session_state()
+    st.session_state[KEY_HISTORY] = []
+    st.session_state[KEY_PAIRS] = []
+
+
+def clear_traffic_logs() -> None:
+    init_session_state()
+    st.session_state[KEY_TRAFFIC_LOGS] = []
+
+
+def clear_security_events() -> None:
+    init_session_state()
+    st.session_state[KEY_EVENTS] = []
+
+
+def clear_cli_history() -> None:
+    init_session_state()
     st.session_state[KEY_CLI_LOG] = []
 
 

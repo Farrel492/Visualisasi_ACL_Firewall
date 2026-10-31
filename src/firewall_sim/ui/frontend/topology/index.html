@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<style>
+  @font-face { font-family: "IBM Plex Sans"; src: url("/app/static/fonts/IBMPlexSans-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "IBM Plex Sans"; src: url("/app/static/fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); font-weight: 600; }
+  @font-face { font-family: "IBM Plex Mono"; src: url("/app/static/fonts/IBMPlexMono-Regular.woff2") format("woff2"); font-weight: 400; }
+  :root {
+    --screen: #1E252B; --screen-line: #33404A; --screen-text: #E7ECEF; --screen-mute: #93A1AC;
+    --accent: #3FB6C4; --ok: #3DBA6F; --deny: #E5584D; --amber: #E3A33B;
+    --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; font-family: var(--sans); color: var(--screen-text); }
+  #wrap { position: relative; background: var(--screen); border-radius: 10px; overflow: hidden; border: 1px solid #141A1F; }
+  #bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--screen-line); min-height: 44px; }
+  #bar .legend { display: flex; gap: 14px; font-size: 12px; color: var(--screen-mute); flex-wrap: wrap; }
+  #bar .legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  #bar .spacer { flex: 1; }
+  button { font: 600 12px var(--sans); color: var(--screen-text); background: #2A343C; border: 1px solid var(--screen-line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  button:hover { background: #33404A; }
+  button:disabled { opacity: .4; cursor: default; }
+  #step { font: 400 12px var(--mono); color: var(--screen-mute); min-width: 92px; text-align: right; }
+  svg { display: block; width: 100%; height: auto; touch-action: none; }
+  .dev { cursor: grab; }
+  .dev.dragging { cursor: grabbing; }
+  .dev .name { font: 600 13px var(--sans); fill: var(--screen-text); }
+  .dev .ip { font: 400 11px var(--mono); fill: var(--screen-mute); }
+  .ifl { font: 400 10px var(--mono); fill: #B6C2CB; paint-order: stroke; stroke: var(--screen); stroke-width: 3px; }
+  .kind { font: 600 10px var(--sans); }
+  #tip { position: absolute; pointer-events: none; background: #0F1519; border: 1px solid var(--screen-line); color: var(--screen-text); padding: 6px 9px; border-radius: 6px; font-size: 12px; display: none; max-width: 220px; line-height: 1.35; z-index: 3; }
+  #tip b { font-weight: 600; }
+  #tip span { color: var(--screen-mute); font-family: var(--mono); font-size: 11px; }
+  #verdict { position: absolute; right: 12px; bottom: 10px; font: 600 12px var(--sans); padding: 6px 10px; border-radius: 6px; display: none; background: #0F1519; border: 1px solid var(--screen-line); }
+  @keyframes drawin { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+  @keyframes risein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .intro .link { stroke-dasharray: var(--len); animation: drawin .7s ease-out both; }
+  .intro .dev { animation: risein .45s ease-out both; }
+  @keyframes ping { from { opacity: .9; transform: scale(.6); } to { opacity: 0; transform: scale(1.9); } }
+  .ping { transform-box: fill-box; transform-origin: center; animation: ping .9s ease-out both; }
+  @media (prefers-reduced-motion: reduce) { .intro .link, .intro .dev, .ping { animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="bar">
+    <div class="legend">
+      <span><i style="border-color:#9FB3C0"></i>FastEthernet</span>
+      <span><i style="border-color:#E3A33B;border-top-style:dashed"></i>Serial</span>
+    </div>
+    <div class="spacer"></div>
+    <span id="step"></span>
+    <button id="prev" title="Langkah sebelumnya">Mundur</button>
+    <button id="play" title="Putar jalur paket">Putar paket</button>
+    <button id="next" title="Langkah berikutnya">Maju</button>
+  </div>
+  <svg id="svg" viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2B363E"/></pattern>
+    </defs>
+    <rect width="1000" height="560" fill="url(#dots)"/>
+    <g id="links"></g>
+    <g id="labels"></g>
+    <g id="devs"></g>
+    <g id="overlay"></g>
+  </svg>
+  <div id="tip"></div>
+  <div id="verdict"></div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var args = null, nonce = 0, dragging = null, first = true;
+  var pos = {}, anim = null, stepIdx = -1;
+
+  // ---- protokol komponen Streamlit (tanpa pustaka luar)
+  function send(type, data) { window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*"); }
+  function setValue(v) { nonce += 1; v.nonce = Date.now() + "-" + nonce; send("streamlit:setComponentValue", { value: v, dataType: "json" }); }
+  function setHeight() { send("streamlit:setFrameHeight", { height: document.getElementById("wrap").offsetHeight + 2 }); }
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "streamlit:render") { args = e.data.args || {}; render(); }
+  });
+  send("streamlit:componentReady", { apiVersion: 1 });
+  new ResizeObserver(setHeight).observe(document.getElementById("wrap"));
+
+  // ---- util svg
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  // ---- gambar perangkat (vektor buatan sendiri, titik pusat = 0,0)
+  function drawPC(g) {
+    el("rect", { x: -34, y: -34, width: 68, height: 46, rx: 3, fill: "#CBD3DA" }, g);
+    el("rect", { x: -29, y: -29, width: 58, height: 36, rx: 1, fill: "#10171C" }, g);
+    el("path", { d: "M-23 -20 h14 M-23 -14 h26 M-23 -8 h18", stroke: "#3DBA6F", "stroke-width": 2, "stroke-linecap": "round" }, g);
+    el("rect", { x: -6, y: 12, width: 12, height: 8, fill: "#AEB8C1" }, g);
+    el("rect", { x: -22, y: 20, width: 44, height: 5, rx: 1.5, fill: "#CBD3DA" }, g);
+    el("rect", { x: -30, y: 29, width: 60, height: 9, rx: 2, fill: "#B7C1C9" }, g);
+    el("path", { d: "M-24 33 h48", stroke: "#8995A0", "stroke-width": 2, "stroke-dasharray": "3 2" }, g);
+  }
+  function drawSwitch(g, used, total) {
+    el("rect", { x: -64, y: -22, width: 128, height: 44, rx: 3, fill: "#CBD3DA" }, g);
+    el("rect", { x: -64, y: -22, width: 128, height: 7, rx: 3, fill: "#B3BEC7" }, g);
+    el("rect", { x: -58, y: -10, width: 20, height: 24, rx: 2, fill: "#2C3A44" }, g);
+    el("text", { x: -48, y: 5, "text-anchor": "middle", "font-size": 11, "font-weight": 600, fill: "#CBD3DA", "font-family": "IBM Plex Sans, sans-serif" }, g).textContent = "24";
+    var n = 0;
+    for (var row = 0; row < 2; row++) {
+      for (var col = 0; col < 12; col++) {
+        var x = -30 + col * 7.6, y = -9 + row * 13;
+        el("rect", { x: x, y: y, width: 6, height: 7, fill: "#1B252C" }, g);
+        var on = n < used;
+        el("rect", { x: x + 1.6, y: y + 8.4, width: 2.8, height: 1.8, fill: on ? "#3DBA6F" : "#7C8893" }, g);
+        n++;
+      }
+    }
+  }
+  function drawRouter(g) {
+    el("path", { d: "M-34 -26 L-34 -48 M34 -26 L34 -48", stroke: "#8DA0AC", "stroke-width": 3, "stroke-linecap": "round" }, g);
+    el("circle", { cx: -34, cy: -49, r: 3, fill: "#8DA0AC" }, g);
+    el("circle", { cx: 34, cy: -49, r: 3, fill: "#8DA0AC" }, g);
+    el("rect", { x: -58, y: -26, width: 116, height: 52, rx: 4, fill: "#36505E" }, g);
+    el("rect", { x: -58, y: -26, width: 116, height: 8, rx: 4, fill: "#2B424E" }, g);
+    // lambang tembok api (susunan bata)
+    var bx = -46, by = -10;
+    var rows = [[0, 1, 2], [0.5, 1.5, 2.5], [0, 1, 2]];
+    rows.forEach(function (r, i) { r.forEach(function (c) { el("rect", { x: bx + c * 17, y: by + i * 10, width: 15, height: 8, rx: 1, fill: i === 1 ? "#E5584D" : "#F0846F" }, g); }); });
+    [0, 1, 2, 3].forEach(function (i) { el("circle", { cx: 6 + i * 11, cy: 18, r: 2, fill: i < 3 ? "#3DBA6F" : "#E3A33B" }, g); });
+  }
+  function drawServer(g, used) {
+    el("rect", { x: -30, y: -44, width: 60, height: 88, rx: 3, fill: "#CBD3DA" }, g);
+    el("rect", { x: -30, y: -44, width: 60, height: 7, rx: 3, fill: "#B3BEC7" }, g);
+    for (var i = 0; i < 4; i++) {
+      el("rect", { x: -24, y: -31 + i * 15, width: 40, height: 11, rx: 1.5, fill: "#26323B" }, g);
+      el("rect", { x: -20, y: -28 + i * 15, width: 18, height: 2, fill: "#5E6E7A" }, g);
+      el("circle", { cx: 22, cy: -25 + i * 15, r: 2, fill: i < 2 ? "#3DBA6F" : "#7C8893" }, g);
+    }
+    el("rect", { x: -18, y: 32, width: 36, height: 6, rx: 1, fill: "#9AA6B0" }, g);
+  }
+  var HALF = { pc: 38, switch: 66, router: 60, server: 46 };
+  var REACH = { pc: 58, switch: 84, router: 74, server: 56 };
+
+  // label interface: diletakkan di samping garis agar tidak menimpa gambar perangkat
+  function ifaceLabel(parent, from, to, ux, uy, reach, text) {
+    var nx = -uy, ny = ux;
+    if (ny > 0) { nx = -nx; ny = -ny; }
+    var t = el("text", { x: from.x + ux * reach + nx * 11, y: from.y + uy * reach + ny * 11 + 3, "text-anchor": "middle", "class": "ifl" }, parent);
+    t.textContent = text;
+  }
+
+  // ---- render
+  function render() {
+    if (dragging) return;
+    var d = args.data;
+    var svg = document.getElementById("svg");
+    var W = d.canvas[0], H = d.canvas[1];
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    var gl = document.getElementById("links"), gb = document.getElementById("labels"), gd = document.getElementById("devs");
+    gl.innerHTML = ""; gb.innerHTML = ""; gd.innerHTML = "";
+    document.getElementById("overlay").innerHTML = "";
+    document.getElementById("wrap").classList.toggle("intro", first && !!args.intro);
+
+    pos = {};
+    d.devices.forEach(function (v) { pos[v.id] = { x: v.x, y: v.y, t: v.type }; });
+
+    d.links.forEach(function (l) {
+      var a = pos[l.a], b = pos[l.b];
+      if (!a || !b) return;
+      var len = Math.hypot(b.x - a.x, b.y - a.y);
+      var serial = l.kind === "se";
+      var color = !l.enabled ? "#5B6772" : (serial ? "#E3A33B" : "#9FB3C0");
+      var line = el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: color, "stroke-width": serial ? 2.5 : 2.5, "stroke-linecap": "round", "class": "link", "data-link": l.id }, gl);
+      line.style.setProperty("--len", len);
+      if (serial || !l.enabled) line.setAttribute("stroke-dasharray", serial ? "9 5" : "3 5");
+      line.addEventListener("mouseenter", function (ev) { tip(ev, "<b>" + esc(l.a_if) + "</b> ke <b>" + esc(l.b_if) + "</b><br><span>" + (serial ? "Kabel Serial" : "Kabel FastEthernet") + (l.enabled ? "" : " (nonaktif)") + "</span>"); });
+      line.addEventListener("mouseleave", hideTip);
+      line.addEventListener("mousemove", moveTip);
+      // label interface dekat tiap ujung
+      var ux = (b.x - a.x) / (len || 1), uy = (b.y - a.y) / (len || 1);
+      var ra = REACH[a.t] || 54, rb = REACH[b.t] || 54;
+      ifaceLabel(gb, a, b, ux, uy, ra, l.a_if);
+      ifaceLabel(gb, b, a, -ux, -uy, rb, l.b_if);
+      var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      el("rect", { x: mx - 11, y: my - 9, width: 22, height: 18, rx: 3, fill: "#1E252B", stroke: color, "stroke-width": 1 }, gb);
+      var kt = el("text", { x: mx, y: my + 4, "text-anchor": "middle", "class": "kind", fill: color }, gb);
+      kt.textContent = serial ? "Se" : "Fa";
+    });
+
+    var order = d.devices.slice().sort(function (p, q) { return p.y - q.y; });
+    order.forEach(function (v, i) {
+      var g = el("g", { "class": "dev", "data-id": v.id, transform: "translate(" + v.x + "," + v.y + ")" }, gd);
+      g.style.animationDelay = (0.1 + i * 0.07) + "s";
+      if (args.data.selected === v.id) {
+        var h = HALF[v.type] || 40;
+        el("rect", { x: -h - 8, y: -h - 6, width: h * 2 + 16, height: h * 2 + 12, rx: 8, fill: "none", stroke: "#3FB6C4", "stroke-width": 1.5, "stroke-dasharray": "5 4" }, g);
+      }
+      var art = el("g", {}, g);
+      if (v.type === "pc") drawPC(art);
+      else if (v.type === "switch") drawSwitch(art, v.ports_used, v.ports_total);
+      else if (v.type === "router") drawRouter(art);
+      else drawServer(art, v.ports_used);
+      var off = v.type === "pc" ? 56 : v.type === "server" ? 62 : v.type === "router" ? 44 : 38;
+      el("text", { x: 0, y: off, "text-anchor": "middle", "class": "name" }, g).textContent = v.name;
+      el("text", { x: 0, y: off + 15, "text-anchor": "middle", "class": "ip" }, g).textContent = v.ip || (v.type === "switch" ? v.ports_used + " dari " + v.ports_total + " port" : "tanpa IP");
+      bindDrag(g, v);
+    });
+    first = false;
+    drawReplay();
+    setHeight();
+  }
+
+  // ---- tooltip
+  var tipEl = document.getElementById("tip");
+  function tip(ev, html) { tipEl.innerHTML = html; tipEl.style.display = "block"; moveTip(ev); }
+  function moveTip(ev) { var r = document.getElementById("wrap").getBoundingClientRect(); tipEl.style.left = Math.min(ev.clientX - r.left + 14, r.width - 230) + "px"; tipEl.style.top = (ev.clientY - r.top + 14) + "px"; }
+  function hideTip() { tipEl.style.display = "none"; }
+
+  // ---- drag
+  function svgPoint(ev) {
+    var svg = document.getElementById("svg");
+    var pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  function bindDrag(g, v) {
+    var moved = false, start = null;
+    g.addEventListener("mouseenter", function (ev) {
+      if (dragging) return;
+      var extra = v.type === "switch" ? v.ports_used + " dari " + v.ports_total + " port terpakai" : (v.ip || "belum ada IP");
+      tip(ev, "<b>" + esc(v.name) + "</b><br><span>" + esc(extra) + "</span><br><span>Seret untuk memindahkan</span>");
+    });
+    g.addEventListener("mousemove", function (ev) { if (!dragging) moveTip(ev); });
+    g.addEventListener("mouseleave", hideTip);
+    g.addEventListener("pointerdown", function (ev) {
+      if (!args.data.editable) { setValue({ type: "select", id: v.id }); return; }
+      ev.preventDefault();
+      g.setPointerCapture(ev.pointerId);
+      dragging = v.id; moved = false; start = svgPoint(ev);
+      g.classList.add("dragging"); hideTip();
+    });
+    g.addEventListener("pointermove", function (ev) {
+      if (dragging !== v.id) return;
+      var p = svgPoint(ev);
+      if (Math.hypot(p.x - start.x, p.y - start.y) > 4) moved = true;
+      var W = args.data.canvas[0], H = args.data.canvas[1];
+      var x = Math.min(Math.max(Math.round(p.x / 10) * 10, 60), W - 60);
+      var y = Math.min(Math.max(Math.round(p.y / 10) * 10, 60), H - 60);
+      pos[v.id].x = x; pos[v.id].y = y; v.x = x; v.y = y;
+      g.setAttribute("transform", "translate(" + x + "," + y + ")");
+      redrawLinksOnly();
+    });
+    function end(ev) {
+      if (dragging !== v.id) return;
+      dragging = null; g.classList.remove("dragging");
+      try { g.releasePointerCapture(ev.pointerId); } catch (e) {}
+      if (moved) {
+        var out = {}; args.data.devices.forEach(function (q) { out[q.id] = [q.x, q.y]; });
+        setValue({ type: "layout", positions: out, selected: v.id });
+      } else {
+        setValue({ type: "select", id: v.id });
+      }
+    }
+    g.addEventListener("pointerup", end);
+    g.addEventListener("pointercancel", end);
+  }
+  function redrawLinksOnly() {
+    var d = args.data;
+    var gl = document.getElementById("links"), gb = document.getElementById("labels");
+    gl.innerHTML = ""; gb.innerHTML = "";
+    document.getElementById("overlay").innerHTML = "";
+    d.links.forEach(function (l) {
+      var a = pos[l.a], b = pos[l.b]; if (!a || !b) return;
+      var serial = l.kind === "se";
+      var color = !l.enabled ? "#5B6772" : (serial ? "#E3A33B" : "#9FB3C0");
+      var line = el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: color, "stroke-width": 2.5, "stroke-linecap": "round" }, gl);
+      if (serial) line.setAttribute("stroke-dasharray", "9 5"); else if (!l.enabled) line.setAttribute("stroke-dasharray", "3 5");
+      var len = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+      var ra = REACH[a.t] || 54, rb = REACH[b.t] || 54;
+      ifaceLabel(gb, a, b, ux, uy, ra, l.a_if);
+      ifaceLabel(gb, b, a, -ux, -uy, rb, l.b_if);
+      var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      el("rect", { x: mx - 11, y: my - 9, width: 22, height: 18, rx: 3, fill: "#1E252B", stroke: color, "stroke-width": 1 }, gb);
+      el("text", { x: mx, y: my + 4, "text-anchor": "middle", "class": "kind", fill: color }, gb).textContent = serial ? "Se" : "Fa";
+    });
+  }
+
+  // ---- replay paket
+  function replay() { return args && args.data && args.data.replay; }
+  var verdictEl = document.getElementById("verdict");
+  var playBtn = document.getElementById("play"), prevBtn = document.getElementById("prev"), nextBtn = document.getElementById("next"), stepEl = document.getElementById("step");
+
+  function drawReplay() {
+    var r = replay();
+    var has = !!(r && r.path && r.path.length > 1);
+    [playBtn, prevBtn, nextBtn].forEach(function (b) { b.style.display = has ? "" : "none"; });
+    stepEl.style.display = has ? "" : "none";
+    verdictEl.style.display = "none";
+    var ov = document.getElementById("overlay"); ov.innerHTML = "";
+    if (!has) return;
+    var last = r.path.length - 1;
+    var idx = stepIdx < 0 ? 0 : Math.min(stepIdx, last);
+    // jalur yang sudah dilewati
+    var color = r.decision === "ACCEPT" ? "#3DBA6F" : r.decision === "DROP" ? "#E5584D" : "#E3A33B";
+    if (stepIdx >= 0) {
+      for (var i = 0; i < idx; i++) {
+        var a = pos[r.path[i]], b = pos[r.path[i + 1]];
+        if (a && b) el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: color, "stroke-width": 5, "stroke-linecap": "round", opacity: 0.55 }, ov);
+      }
+      var cur = pos[r.path[idx]];
+      if (cur) {
+        el("rect", { x: cur.x - 9, y: cur.y - 9, width: 18, height: 18, rx: 4, fill: "#F2C14E", stroke: "#1E252B", "stroke-width": 2 }, ov);
+        if (idx === last) {
+          var ring = el("circle", { cx: cur.x, cy: cur.y, r: 30, fill: "none", stroke: color, "stroke-width": 3, "class": "ping" }, ov);
+          if (r.decision === "DROP") {
+            el("path", { d: "M" + (cur.x - 8) + " " + (cur.y - 8) + " l16 16 M" + (cur.x + 8) + " " + (cur.y - 8) + " l-16 16", stroke: color, "stroke-width": 4, "stroke-linecap": "round" }, ov);
+          }
+        }
+      }
+    }
+    var txt = (r.steps[Math.min(idx, r.steps.length - 1)] || {}).text || "";
+    stepEl.textContent = stepIdx < 0 ? "Siap diputar" : "Langkah " + (idx + 1) + "/" + (last + 1);
+    prevBtn.disabled = stepIdx <= 0; nextBtn.disabled = stepIdx >= last;
+    if (stepIdx === last) {
+      verdictEl.style.display = "block"; verdictEl.style.color = color;
+      verdictEl.textContent = r.decision === "ACCEPT" ? "ACCEPT: paket sampai tujuan" : r.decision === "DROP" ? "DROP: paket berhenti di router" : r.decision;
+    }
+  }
+  function goStep(n) { var r = replay(); if (!r) return; stepIdx = Math.max(0, Math.min(n, r.path.length - 1)); drawReplay(); }
+  prevBtn.onclick = function () { stopAnim(); goStep(stepIdx - 1); };
+  nextBtn.onclick = function () { stopAnim(); goStep(stepIdx + 1); };
+  playBtn.onclick = function () {
+    var r = replay(); if (!r) return;
+    if (anim) { stopAnim(); return; }
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    stepIdx = 0; drawReplay();
+    playBtn.textContent = "Berhenti";
+    anim = setInterval(function () {
+      if (stepIdx >= r.path.length - 1) { stopAnim(); return; }
+      goStep(stepIdx + 1);
+    }, reduce ? 300 : 900);
+  };
+  function stopAnim() { if (anim) { clearInterval(anim); anim = null; } playBtn.textContent = "Putar paket"; }
+})();
+</script>
+</body>
+</html>

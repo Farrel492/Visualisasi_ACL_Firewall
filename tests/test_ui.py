@@ -9,7 +9,6 @@ from firewall_sim.scenarios.presets import empty_project
 from firewall_sim.ui.state import (
     KEY_EVENTS,
     KEY_HISTORY,
-    KEY_MODE,
     KEY_NAV_PAGE,
     KEY_STATE,
 )
@@ -46,42 +45,108 @@ def test_ui_navigation_to_all_pages_via_sidebar_buttons():
     for key, expected_page in nav_buttons:
         at = AppTest.from_file(APP_PATH, default_timeout=10)
         at.run()
-        matching_buttons = [b for b in at.sidebar.button if b.key == key]
-        assert len(matching_buttons) == 1, f"Tombol dengan key '{key}' tidak ditemukan di sidebar"
+        matching_buttons = [b for b in at.button if b.key == key]
+        assert len(matching_buttons) == 1, f"Tombol dengan key {key} tidak ditemukan di rail"
         matching_buttons[0].click().run()
         assert not at.exception, f"Gagal merender halaman: {expected_page}"
         assert at.session_state[KEY_NAV_PAGE] == expected_page
 
 
-def test_ui_mode_toggle_preserves_state():
-    """Menguji bahwa mengubah mode antarmuka (Learning vs Professional) tidak memutasi ProjectState (T11)."""
+def test_ui_start_here_next_action_conditions():
+    """Menguji SATU tombol utama pada kartu 'Langkah berikutnya' untuk 5 kondisi state:
+    1. tidak ada perangkat -> 'Muat demo siap pakai'
+    2. ada perangkat, 0 rule -> 'Tambah aturan firewall'
+    3. ada rule, 0 uji -> 'Jalankan uji paket'
+    4. sudah ada uji -> 'Lihat jalur paket di 3D'
+    5. sudah ada hasil DROP -> 'Coba matikan aturan DROP lalu uji ulang'
+    """
+    from firewall_sim.scenarios.presets import default_lab
+    from firewall_sim.core.models import SimulationResult
+
     at = AppTest.from_file(APP_PATH, default_timeout=10)
     at.run()
+    at.session_state[KEY_NAV_PAGE] = "start_here"
 
-    init_state = at.session_state[KEY_STATE]
-    assert at.session_state[KEY_MODE] == "Learning"
+    # Kondisi 1: Tidak ada perangkat
+    at.session_state[KEY_STATE] = empty_project()
+    at.session_state[KEY_HISTORY] = []
+    at.run()
+    btn = [b for b in at.button if b.key == "btn_next_action"]
+    assert len(btn) == 1
+    assert btn[0].label == "Muat demo siap pakai"
 
-    mode_radio = at.sidebar.radio(key="ui_mode_selector")
-    mode_radio.set_value("Mode Profesional").run()
+    # Klik muat demo siap pakai
+    btn[0].click().run()
     assert not at.exception
-    assert at.session_state[KEY_MODE] == "Professional"
+    # Setelah muat demo, demo memiliki DROP sehingga masuk ke kondisi 5 (ada DROP):
+    btn = [b for b in at.button if b.key == "btn_next_action"]
+    assert btn[0].label == "Coba matikan aturan DROP lalu uji ulang"
 
-    state_after = at.session_state[KEY_STATE]
-    assert state_after == init_state
-    assert state_after.config_revision == init_state.config_revision
+    # Kondisi 2: Ada perangkat, 0 rule
+    st_devs_no_rules = default_lab()
+    st_devs_no_rules.rules = []
+    at.session_state[KEY_STATE] = st_devs_no_rules
+    at.session_state[KEY_HISTORY] = []
+    at.run()
+    btn = [b for b in at.button if b.key == "btn_next_action"]
+    assert btn[0].label == "Tambah aturan firewall"
+    btn[0].click().run()
+    assert at.session_state[KEY_NAV_PAGE] == "firewall_rules"
+
+    # Kondisi 3: Ada rule, 0 uji
+    at.session_state[KEY_NAV_PAGE] = "start_here"
+    at.session_state[KEY_STATE] = default_lab()
+    at.session_state[KEY_HISTORY] = []
+    at.run()
+    btn = [b for b in at.button if b.key == "btn_next_action"]
+    assert btn[0].label == "Jalankan uji paket"
+    btn[0].click().run()
+    assert at.session_state[KEY_NAV_PAGE] == "packet_sim"
+
+    # Kondisi 4: Sudah ada uji (tanpa DROP / semua ACCEPT)
+    at.session_state[KEY_NAV_PAGE] = "start_here"
+    at.session_state[KEY_STATE] = default_lab()
+    res_accept = SimulationResult(
+        test_id="test_accept_1",
+        decision=Decision.ACCEPT,
+        matched_rule_id=None,
+        reason="Lolos",
+        path_traversal=[],
+        config_revision=1,
+    )
+    at.session_state[KEY_HISTORY] = [res_accept]
+    at.run()
+    btn = [b for b in at.button if b.key == "btn_next_action"]
+    assert btn[0].label == "Lihat jalur paket di 3D"
+    btn[0].click().run()
+    assert at.session_state[KEY_NAV_PAGE] == "viz3d"
+
+    # Kondisi 5: Sudah ada hasil DROP
+    at.session_state[KEY_NAV_PAGE] = "start_here"
+    res_drop = SimulationResult(
+        test_id="test_drop_1",
+        decision=Decision.DROP,
+        matched_rule_id="r1",
+        reason="Ditolak",
+        path_traversal=[],
+        config_revision=1,
+    )
+    at.session_state[KEY_HISTORY] = [res_drop]
+    at.run()
+    btn = [b for b in at.button if b.key == "btn_next_action"]
+    assert btn[0].label == "Coba matikan aturan DROP lalu uji ulang"
+    btn[0].click().run()
+    assert at.session_state[KEY_NAV_PAGE] == "firewall_rules"
 
 
 def test_ui_demo_scenario_loader():
-    """Menguji tombol 'Muat Demo Siap Pakai' di Mulai di Sini menghasilkan >=1 ACCEPT, >=1 DROP, dan >=1 alert."""
+    """Menguji eksekusi pemuatan skenario demo menghasilkan >=1 ACCEPT, >=1 DROP, dan >=1 alert."""
+    from firewall_sim.ui.state import load_demo_scenario
+    ok, errs = load_demo_scenario()
+    assert ok, f"Gagal memuat skenario demo: {errs}"
+
     at = AppTest.from_file(APP_PATH, default_timeout=10)
     at.run()
-
-    assert at.session_state[KEY_NAV_PAGE] == "start_here"
-
-    demo_btn = [b for b in at.button if b.key == "btn_demo_load"]
-    assert len(demo_btn) == 1, "Tombol 'btn_demo_load' tidak ditemukan"
-    demo_btn[0].click().run()
-    assert not at.exception
 
     history = at.session_state[KEY_HISTORY]
     assert len(history) >= 2, f"Diharapkan minimal 2 hasil simulasi, ditemukan: {len(history)}"
@@ -99,15 +164,15 @@ def test_ui_bridge_cli_rule_reflected_in_rules_page():
     at = AppTest.from_file(APP_PATH, default_timeout=10)
     at.run()
 
-    cli_btn = [b for b in at.sidebar.button if b.key == "nav_cli_console"][0]
+    cli_btn = [b for b in at.button if b.key == "nav_cli_console"][0]
     cli_btn.click().run()
     assert not at.exception
 
     at.text_input[0].set_value('rule add chain=forward proto=tcp dport=443 action=accept comment="HTTPS Access"')
-    at.button[0].click().run()
+    [b for b in at.button if b.label == "Kirim"][0].click().run()
     assert not at.exception
 
-    rules_btn = [b for b in at.sidebar.button if b.key == "nav_firewall_rules"][0]
+    rules_btn = [b for b in at.button if b.key == "nav_firewall_rules"][0]
     rules_btn.click().run()
     assert not at.exception
 
@@ -120,7 +185,7 @@ def test_ui_simulation_history_record():
     at = AppTest.from_file(APP_PATH, default_timeout=10)
     at.run()
 
-    sim_btn = [b for b in at.sidebar.button if b.key == "nav_packet_sim"][0]
+    sim_btn = [b for b in at.button if b.key == "nav_packet_sim"][0]
     sim_btn.click().run()
     assert not at.exception
 
@@ -154,7 +219,7 @@ def test_ui_3d_viz_renders_with_history():
     at.session_state[KEY_HISTORY] = [res]
 
     # Buka halaman 3D via tombol sidebar
-    viz_btn = [b for b in at.sidebar.button if b.key == "nav_viz3d"][0]
+    viz_btn = [b for b in at.button if b.key == "nav_viz3d"][0]
     viz_btn.click().run()
     assert not at.exception
     assert len(at.title) >= 1
@@ -166,12 +231,12 @@ def test_ui_learning_lab_interaction():
     at = AppTest.from_file(APP_PATH, default_timeout=10)
     at.run()
 
-    lab_btn = [b for b in at.sidebar.button if b.key == "nav_learning_lab"][0]
+    lab_btn = [b for b in at.button if b.key == "nav_learning_lab"][0]
     lab_btn.click().run()
     assert not at.exception
 
     # Klik tombol 'Muat ke Workspace' pertama
-    at.button[0].click().run()
+    [b for b in at.button if "Muat" in (b.label or "")][0].click().run()
     assert not at.exception
     loaded_state = at.session_state[KEY_STATE]
     assert dict(loaded_state.scenario_metadata).get("id") == "scen_web_allow"
@@ -296,33 +361,6 @@ def test_ui_topology_crud_actions():
     at.session_state[KEY_STATE] = state
 
 
-def test_ui_learning_vs_professional_mode_elements():
-    """R1.7: Menguji bahwa elemen edukasi ditampilkan pada Learning Mode dan disembunyikan pada Professional Mode."""
-    # 1. Learning Mode
-    at_learn = AppTest.from_file(APP_PATH, default_timeout=10)
-    at_learn.run()
-    at_learn.session_state[KEY_NAV_PAGE] = "firewall_rules"
-    at_learn.run()
-    assert not at_learn.exception
-    # Harus ada panel 'Konsep Penting'
-    learn_mds = [m.value for m in at_learn.markdown if "Konsep Penting" in m.value]
-    assert len(learn_mds) >= 1, "Panel konsep edukasi tidak ditemukan pada Learning Mode"
-
-    # 2. Professional Mode
-    at_pro = AppTest.from_file(APP_PATH, default_timeout=10)
-    at_pro.run()
-    at_pro.sidebar.radio(key="ui_mode_selector").set_value("Mode Profesional").run()
-    at_pro.session_state[KEY_NAV_PAGE] = "firewall_rules"
-    at_pro.run()
-    assert not at_pro.exception
-    # Panel 'Konsep Penting' harus disembunyikan pada Professional Mode
-    pro_mds = [m.value for m in at_pro.markdown if "Konsep Penting" in m.value]
-    assert len(pro_mds) == 0, "Panel konsep edukasi seharusnya disembunyikan pada Professional Mode"
-
-    # State identik
-    assert at_learn.session_state[KEY_STATE] == at_pro.session_state[KEY_STATE]
-
-
 def test_ui_workflow_rail_and_flow_next():
     """Menguji bahwa Workflow Rail ter-render di halaman alur kerja dan tombol flow-next berfungsi."""
     at = AppTest.from_file(APP_PATH, default_timeout=10)
@@ -350,3 +388,13 @@ def test_ui_workflow_rail_and_flow_next():
 
 
 
+
+
+def test_ui_overview_renders_after_demo_with_audit_log():
+    """Regresi: Dasbor sebelumnya error (AuditEntry tidak punya 'revision') setelah ada perubahan konfigurasi."""
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
+    at.run()
+    [b for b in at.button if "demo" in (b.label or "").lower()][0].click().run()
+    assert not at.exception
+    [b for b in at.button if b.key == "nav_overview"][0].click().run()
+    assert not at.exception, [e.value for e in at.exception]

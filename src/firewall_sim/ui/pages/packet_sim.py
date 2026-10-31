@@ -24,7 +24,6 @@ from firewall_sim.ui.state import (
     add_simulation_run,
     get_simulation_history,
     get_state,
-    is_learning,
 )
 from firewall_sim.ui.theme import (
     COLOR_ALLOW,
@@ -248,16 +247,14 @@ def render_packet_sim_page() -> None:
                             st.rerun()
 
     with col_side:
-        # Panel Panduan Edukatif (Learning Mode)
-        if is_learning():
-            with st.container(border=True):
-                st.markdown("#### :material/school: Konsep Traversal Paket")
-                st.markdown(
-                    "- **Same-Subnet Bypass**: Paket antar-host dalam subnet yang sama langsung diteruskan via Switch L2 tanpa menyentuh firewall.\n"
-                    "- **Routing ke Gateway**: Jika subnet berbeda, host mengirim paket ke router gateway-nya.\n"
-                    "- **Chain FORWARD**: Paket yang melintasi router dievaluasi terhadap aturan forward.\n"
-                    "- **DROP Berhenti di Router**: Jika keputusan DROP, paket dimusnahkan di router dan tidak sampai ke subnet tujuan."
-                )
+        # Panel Panduan Edukatif
+        with st.expander(":material/school: Konsep Traversal Paket", expanded=False):
+            st.markdown(
+                "- **Same-Subnet Bypass**: Paket antar-host dalam subnet yang sama langsung diteruskan via Switch L2 tanpa menyentuh firewall.\n"
+                "- **Routing ke Gateway**: Jika subnet berbeda, host mengirim paket ke router gateway-nya.\n"
+                "- **Chain FORWARD**: Paket yang melintasi router dievaluasi terhadap aturan forward.\n"
+                "- **DROP Berhenti di Router**: Jika keputusan DROP, paket dimusnahkan di router dan tidak sampai ke subnet tujuan."
+            )
 
         # Langkah Berikutnya
         next_steps([

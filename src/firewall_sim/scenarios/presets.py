@@ -44,7 +44,7 @@ def default_lab() -> ProjectState:
         name="PC A",
         type=DeviceType.PC,
         interfaces=(
-            Interface(id="if_pc_a", device_id="pc_a", name="eth0", ipv4_cidr="192.168.1.10/24", enabled=True),
+            Interface(id="if_pc_a", device_id="pc_a", name="Fa0", ipv4_cidr="192.168.1.10/24", enabled=True),
         ),
         default_gateway="192.168.1.1",
     )
@@ -54,7 +54,7 @@ def default_lab() -> ProjectState:
         name="PC B",
         type=DeviceType.PC,
         interfaces=(
-            Interface(id="if_pc_b", device_id="pc_b", name="eth0", ipv4_cidr="192.168.1.11/24", enabled=True),
+            Interface(id="if_pc_b", device_id="pc_b", name="Fa0", ipv4_cidr="192.168.1.11/24", enabled=True),
         ),
         default_gateway="192.168.1.1",
     )
@@ -64,9 +64,12 @@ def default_lab() -> ProjectState:
         name="Switch LAN",
         type=DeviceType.SWITCH,
         interfaces=(
-            Interface(id="sw_p1", device_id="sw_lan", name="port1", ipv4_cidr=None, enabled=True),
-            Interface(id="sw_p2", device_id="sw_lan", name="port2", ipv4_cidr=None, enabled=True),
-            Interface(id="sw_p3", device_id="sw_lan", name="port3", ipv4_cidr=None, enabled=True),
+            *(
+                Interface(
+                    id=f"sw_p{n}", device_id="sw_lan", name=f"Fa0/{n}", ipv4_cidr=None, enabled=True
+                )
+                for n in range(1, 25)
+            ),
         ),
     )
 
@@ -75,8 +78,10 @@ def default_lab() -> ProjectState:
         name="Router Firewall",
         type=DeviceType.ROUTER,
         interfaces=(
-            Interface(id="r_lan", device_id="router", name="eth0", ipv4_cidr="192.168.1.1/24", enabled=True),
-            Interface(id="r_srv", device_id="router", name="eth1", ipv4_cidr="10.0.0.1/24", enabled=True),
+            Interface(id="r_lan", device_id="router", name="Fa0/0", ipv4_cidr="192.168.1.1/24", enabled=True),
+            Interface(id="r_srv", device_id="router", name="Fa0/1", ipv4_cidr="10.0.0.1/24", enabled=True),
+            Interface(id="r_se0", device_id="router", name="Se0/0", ipv4_cidr=None, enabled=True),
+            Interface(id="r_se1", device_id="router", name="Se0/1", ipv4_cidr=None, enabled=True),
         ),
     )
 
@@ -85,7 +90,7 @@ def default_lab() -> ProjectState:
         name="Web Server",
         type=DeviceType.SERVER,
         interfaces=(
-            Interface(id="if_srv", device_id="server", name="eth0", ipv4_cidr="10.0.0.10/24", enabled=True),
+            Interface(id="if_srv", device_id="server", name="Fa0", ipv4_cidr="10.0.0.10/24", enabled=True),
         ),
         default_gateway="10.0.0.1",
     )
@@ -119,7 +124,9 @@ def empty_project() -> ProjectState:
         name="Router Firewall",
         type=DeviceType.ROUTER,
         interfaces=(
-            Interface(id="r_eth0", device_id="router", name="eth0", ipv4_cidr="192.168.1.1/24", enabled=True),
+            Interface(id="r_eth0", device_id="router", name="Fa0/0", ipv4_cidr="192.168.1.1/24", enabled=True),
+            Interface(id="r_fa1", device_id="router", name="Fa0/1", ipv4_cidr=None, enabled=True),
+            Interface(id="r_se0", device_id="router", name="Se0/0", ipv4_cidr=None, enabled=True),
         ),
     )
     return ProjectState(

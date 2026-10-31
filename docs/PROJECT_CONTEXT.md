@@ -48,7 +48,7 @@ Dipin di `requirements.txt` (terinstal di Python 3.13 Windows):
 - Config Service Lengkap: mutasi aman satu pintu, Add/Remove Device & Link, Rename Device, penomoran revisi atomik, audit trail.
 - Preset Skenario & Learning Lab: 4 guided preset skenario dengan metadata lengkap, tombol pemuatan skenario, dan verifikasi target uji.
 - Replay 3D Interaktif: Plotly Scatter3d dengan kontrol langkah demi langkah (slider & prev-next) tahan rerun; paket DROP berhenti di router.
-- Mode Pembelajaran: Mode switcher Learning (panel panduan konsep) vs Professional (ringkas) tersimpan di session state tanpa memodifikasi ProjectState (T11).
+- Mode Pembelajaran: Dihapus dan disatukan menjadi tampilan seragam meja lab dengan expander/popover ringkas bagi semua pengguna.
 - JSON Storage & Persistence: Serialisasi dan deserialisasi proyek lengkap dengan verifikasi skema dan validasi topologi.
 - Antarmuka UI Streamlit Lengkap: 11 modul navigasi terintegrasi dengan router nav_page tunggal, sidebar 4 grup, Network 2D berlapis, Device Config inline valid, dan Firewall Rules terurut.
 
@@ -106,4 +106,4 @@ streamlit run app.py
 ```
 
 ## Last verified commit/version
-Tahap R1 Selesai (2026-10-26). Pytest 77 passed (100% lulus). Eliminasi emoji 100%, bug judul halaman dinormalisasi, form topologi divalidasi, dan UI audit 31 poin terdokumentasi di docs/UI_AUDIT.md.
+Tahap R1 Selesai (2026-10-26). Pytest 77 passed (100% lulus). Eliminasi emoji 100%, bug judul halaman dinormalisasi, form topologi divalidasi, dan UI audit 31 poin terdokumentasi di docs/UI_AUDIT.md.

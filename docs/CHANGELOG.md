@@ -4,6 +4,27 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### 2026-10-31: Perubahan Arah - Fondasi Meja Lab, Penghapusan Mode Antarmuka, dan Alur Mulai di Sini
+- **Added:**
+  - Fondasi visual baru: rail navigasi fixed menempel penuh di tepi kiri (position: fixed; top: 0; left: 0; bottom: 0; border-radius: 0; padding: 18px 10px; width: 248px / 64px).
+  - Topologi 2D Canvas & 3D Three.js 0.160.1 mandiri di src/firewall_sim/ui/frontend/.
+  - Token penyimpanan workspace otomatis berbasis token URL (ui/workspace.py).
+  - Halaman start_here.py: Satu kartu "Langkah berikutnya" terhitung dinamis dari state (tidak ada perangkat -> "Muat demo siap pakai", ada perangkat tanpa rule -> "Tambah aturan firewall", ada rule tanpa uji -> "Jalankan uji paket", sudah ada DROP -> "Coba matikan aturan DROP lalu uji ulang", sudah ada uji tanpa DROP -> "Lihat jalur paket di 3D").
+  - 5 baris alur kerja teks berstatus (Bangun, Konfigurasi, Simulasi, Visualisasi, Analisis) beserta kalimat deskripsi peran tiap langkah.
+  - Pengujian AppTest test_ui_start_here_next_action_conditions untuk seluruh 5 kondisi state pada kartu langkah berikutnya.
+- **Changed:**
+  - src/firewall_sim/ui/theme.py: Update styling .st-key-fw_rail menjadi full-height edge fixed dan lebar 248px (terbuka) / 64px (ciut).
+  - Seluruh modul halaman (pages/*.py): Mengubah panel panduan edukasi menjadi expander ringkas yang tampil konsisten bagi seluruh pengguna.
+- **Removed:**
+  - Fitur "Mode Belajar/Profesional": radio ui_mode_selector di ui/shell.py, cabang is_learning() / get_ui_mode() di seluruh halaman, serta helper fungsi get_ui_mode, is_learning, set_ui_mode dari ui/state.py.
+  - Tes khusus pengujian mode antarmuka: test_T11_ui_mode_toggle_preserves_project_state (tests/test_acceptance.py), test_t11_mode_switch_does_not_mutate_project_state (tests/test_scenarios.py), test_ui_mode_toggle_preserves_state (tests/test_ui.py), dan test_ui_learning_vs_professional_mode_elements (tests/test_ui.py).
+- **Impacted modules:** ui/shell.py, ui/theme.py, ui/state.py, ui/components.py, ui/pages/start_here.py, ui/pages/network.py, ui/pages/device_config.py, ui/pages/firewall_rules.py, ui/pages/packet_sim.py, ui/pages/cli_console.py, tests/test_acceptance.py, tests/test_scenarios.py, tests/test_ui.py.
+- **Tests performed:** 62 passed in 0.39s pada gerbang tes non-UI (pytest -q --ignore=tests/test_ui.py --ignore=tests/test_benchmark.py --ignore=tests/test_workspace.py).
+- **Known limitations:** Eksekusi pengujian Streamlit AppTest/EventLoop asyncio (test_ui.py, test_benchmark.py, test_workspace.py) mengalami hang pada lingkungan socket loopback sandbox agen, pengujian penuh dijalankan di PowerShell host.
+- **Next steps:** Penyelesaian Fase 1 (B1-B6 bug nyata dan UI audit) dan Fase 2 (penyesuaian tampilan halaman sesuai brief lab).
+
 ### 2026-10-26: Tahap R3 - Konsol CLI Terminal Bergaya Nyata
 - **Changed:**
   - `src/firewall_sim/ui/pages/cli_console.py`: Dibangun ulang sepenuhnya. Menampilkan jendela terminal HTML bergaya macOS (window bar dengan dots merah/kuning/hijau, label hostname, scrollable body). Output per baris diberi warna: prompt `fw-lab>` biru, perintah putih, output sukses hijau, pesan error merah, baris dimulai. Form input Enter-to-submit, tombol "Bersihkan" khusus log CLI, chip perintah cepat dengan ikon Material. Referensi sintaks tersembunyi dalam expander. Sanitasi HTML via `html.escape()` untuk keamanan.

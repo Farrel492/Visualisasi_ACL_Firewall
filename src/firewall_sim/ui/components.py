@@ -7,7 +7,7 @@ import streamlit as st
 
 from firewall_sim.core.models import Decision
 from firewall_sim.core.validation import validate_topology
-from firewall_sim.ui.state import get_state, get_ui_mode, init_session_state
+from firewall_sim.ui.state import get_state, init_session_state
 from firewall_sim.ui.theme import (
     COLOR_ALLOW,
     COLOR_AMBER,

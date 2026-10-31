@@ -8,21 +8,21 @@ from __future__ import annotations
 from firewall_sim.core.models import Decision
 
 # Palet PRD Bagian 11 & Spesifikasi Visual
-COLOR_BASE = "#0F172A"
-COLOR_SURFACE = "#1E293B"
-COLOR_SIDEBAR = "#0B1220"
-COLOR_BORDER = "#334155"
-COLOR_TEXT = "#F9FAFB"
-COLOR_PRIMARY = "#3B82F6"
-COLOR_ALLOW = "#16A34A"
-COLOR_DENY = "#DC2626"
-COLOR_WARNING = "#F59E0B"
-COLOR_AMBER = "#F59E0B"
-COLOR_MUTED = "#94A3B8"
+COLOR_BASE = "#E6E9EC"
+COLOR_SURFACE = "#F4F5F6"
+COLOR_SIDEBAR = "#1E252B"
+COLOR_BORDER = "#C2C9D0"
+COLOR_TEXT = "#18222B"
+COLOR_PRIMARY = "#16808D"
+COLOR_ALLOW = "#1F7A45"
+COLOR_DENY = "#B8322A"
+COLOR_WARNING = "#9A6208"
+COLOR_AMBER = "#9A6208"
+COLOR_MUTED = "#5E6A75"
 
 # Radius tokens
-RADIUS_BASE = "0.75rem"
-RADIUS_BUTTON = "0.75rem"
+RADIUS_BASE = "6px"
+RADIUS_BUTTON = "6px"
 
 # Spacing tokens (rem units) for consistent layout
 SPACING_XS = "0.25rem"
@@ -32,7 +32,7 @@ SPACING_LG = "1.5rem"
 SPACING_XL = "2rem"
 
 # Typography defaults (system font stack via .streamlit/config.toml)
-FONT_FAMILY = "sans-serif"
+FONT_FAMILY = "IBM Plex Sans, sans-serif"
 FONT_SIZE_BASE = "1rem"
 FONT_SIZE_SM = "0.875rem"
 FONT_SIZE_LG = "1.125rem"
@@ -42,205 +42,113 @@ def get_decision_badge(decision: Decision) -> str:
     The badge includes text and description satisfying accessibility requirements.
     """
     if decision == Decision.ACCEPT:
-        return "[ACCEPT] Lolos Kebijakan"
+        return "ACCEPT: lolos kebijakan"
     if decision == Decision.DROP:
-        return "[DROP] Ditolak Firewall"
+        return "DROP: ditolak firewall"
     if decision == Decision.NO_ROUTE:
-        return "[NO_ROUTE] Rute Tidak Ditemukan"
+        return "NO_ROUTE: rute tidak ditemukan"
     if decision == Decision.INVALID_CONFIG:
-        return "[INVALID_CONFIG] Konfigurasi Tidak Valid"
+        return "INVALID_CONFIG: konfigurasi tidak valid"
     if decision == Decision.UNSUPPORTED_CASE:
-        return "[UNSUPPORTED_CASE] Kasus Belum Didukung"
-    return f"[{decision.value}]"
+        return "UNSUPPORTED_CASE: kasus belum didukung"
+    return decision.value
 
 
 def inject_theme_css() -> str:
-    """Return custom CSS rules for .fw-* design system elements.
-    Includes smooth micro-transitions and prefers-reduced-motion accessibility.
-    Does NOT touch Streamlit internal classes (.st-emotion-cache, [data-testid]).
+    """CSS desain "meja lab jaringan": area kerja terang + layar instrumen gelap.
+
+    Hanya menyentuh elemen buatan sendiri (.fw-*) dan class otomatis dari key Streamlit (.st-key-*).
+    Tidak menyentuh .st-emotion-cache atau data-testid.
     """
+    import streamlit as st  # impor lokal agar modul tetap ringan saat diuji
+
+    rail_open = bool(st.session_state.get("fw_sim_rail_open", True))
+    rail_w = "248px" if rail_open else "64px"
     return """
-    <style>
-    /* Firewall Simulator Design System - Cockpit Engineering Styles */
-    :root {
-        --fw-primary: #3B82F6;
-        --fw-primary-hover: #2563EB;
-        --fw-surface: #1E293B;
-        --fw-border: #334155;
-        --fw-muted: #94A3B8;
-        --fw-text: #F9FAFB;
-        --fw-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Fira Code', Menlo, Consolas, monospace;
-    }
+<style>
+:root {
+  --fw-rail-w: __RAIL_W__;
+  --fw-bench: #E6E9EC; --fw-panel: #F4F5F6; --fw-ink: #18222B; --fw-mute: #5E6A75; --fw-line: #C2C9D0;
+  --fw-accent: #16808D; --fw-screen: #1E252B; --fw-screen-line: #33404A; --fw-screen-text: #E7ECEF;
+  --fw-led-ok: #2FA35B; --fw-led-deny: #CF3B31; --fw-led-amber: #D9902A;
+  --fw-ok-text: #1F7A45; --fw-deny-text: #B8322A; --fw-amber-text: #8A5A0B;
+  --fw-r-data: 2px; --fw-r-control: 6px; --fw-r-screen: 10px;
+  --fw-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
 
-    /* Workflow Rail */
-    .fw-workflow-rail {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        background: rgba(30, 41, 59, 0.7);
-        border: 1px solid var(--fw-border);
-        border-radius: 0.75rem;
-        padding: 0.6rem 1rem;
-        margin-bottom: 1.25rem;
-        backdrop-filter: blur(8px);
-    }
+/* ---------- rail navigasi (fixed, tetap tampil saat diciutkan) ---------- */
+.st-key-fw_rail {
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--fw-rail-w); z-index: 60;
+  background: var(--fw-screen); border-radius: 0; padding: 18px 10px; overflow-y: auto; overflow-x: hidden;
+}
+.st-key-fw_rail, .st-key-fw_rail p, .st-key-fw_rail label, .st-key-fw_rail span, .st-key-fw_rail button { color: var(--fw-screen-text); }
+.st-key-fw_rail button {
+  justify-content: flex-start; background: transparent; border: 0; box-shadow: none;
+  border-radius: var(--fw-r-control); min-height: 38px; padding: 0 10px;
+}
+.st-key-fw_rail button div { justify-content: flex-start; width: 100%; }
+.st-key-fw_rail button p { text-align: left; width: 100%; font-weight: 500; font-size: 0.92rem; }
+.st-key-fw_rail button:hover { background: #2A343C; }
+[class*="st-key-navitem_"][class*="_on"] button { background: var(--fw-accent) !important; }
+[class*="st-key-navitem_"][class*="_on"] button:hover { background: var(--fw-accent) !important; }
+.st-key-fw_main { padding-left: calc(var(--fw-rail-w) - 52px); margin-top: -2.5rem; box-sizing: border-box; }
+.fw-brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px 12px; }
+.fw-brand b { font: 600 17px/1.15 "IBM Plex Sans", sans-serif; color: var(--fw-screen-text); }
+.fw-brand small { display: block; font: 400 11.5px "IBM Plex Sans", sans-serif; color: #93A1AC; margin-top: 2px; }
+.fw-rail-cap { font: 600 11px "IBM Plex Sans", sans-serif; color: #93A1AC; margin: 14px 0 4px 10px; }
+.fw-rail-status { margin: 12px 4px 4px; padding: 10px; border-top: 1px solid var(--fw-screen-line); font: 400 12.5px/1.6 "IBM Plex Sans", sans-serif; color: #B6C2CB; }
+.fw-rail-status b { color: var(--fw-screen-text); font-weight: 600; }
+.fw-led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.fw-led.ok { background: var(--fw-led-ok); } .fw-led.deny { background: var(--fw-led-deny); } .fw-led.amber { background: var(--fw-led-amber); }
+@media (max-width: 900px) {
+  .st-key-fw_rail { position: static; width: 100%; margin-bottom: 12px; }
+  .st-key-fw_main { padding-left: 0; }
+}
 
-    .fw-step-item {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.825rem;
-        font-weight: 500;
-        color: var(--fw-muted);
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        transition: color 200ms ease, background 200ms ease;
-    }
+/* ---------- jalur kerja 5 langkah: baris teks yang tenang ---------- */
+.fw-workflow-rail { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 0 0 12px; margin-bottom: 14px; border-bottom: 1px solid var(--fw-line); font-size: 0.84rem; color: var(--fw-mute); }
+.fw-step-item { display: flex; align-items: center; gap: 6px; padding: 2px 0; border-bottom: 2px solid transparent; }
+.fw-step-item.active { color: var(--fw-ink); font-weight: 600; border-bottom-color: var(--fw-accent); }
+.fw-step-num { font-family: var(--fw-mono); font-size: 0.78rem; opacity: .8; }
+.fw-step-arrow { display: none; }
 
-    .fw-step-item.active {
-        color: var(--fw-text);
-        background: rgba(59, 130, 246, 0.15);
-        border: 1px solid rgba(59, 130, 246, 0.4);
-        font-weight: 600;
-    }
+/* ---------- elemen buatan sendiri ---------- */
+.fw-card { background: var(--fw-panel); border: 1px solid var(--fw-line); border-radius: var(--fw-r-control); padding: 1rem; margin-bottom: 0.75rem; }
+.fw-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-family: var(--fw-mono); font-size: 0.8rem; }
+.fw-code-pill { font-family: var(--fw-mono); background: #DDE2E6; border: 1px solid var(--fw-line); padding: 0.05rem 0.4rem; border-radius: var(--fw-r-data); font-size: 0.82rem; color: var(--fw-ink); }
+.fw-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--fw-ink); background: var(--fw-panel); border: 1px solid var(--fw-line); border-radius: var(--fw-r-control); padding: 2px 8px; }
 
-    .fw-step-num {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 1.25rem;
-        height: 1.25rem;
-        border-radius: 50%;
-        font-size: 0.75rem;
-        background: rgba(148, 163, 184, 0.2);
-        color: var(--fw-text);
-    }
+/* ---------- konsol CLI: layar instrumen ---------- */
+.fw-terminal-window { background: var(--fw-screen); border: 1px solid #141A1F; border-radius: var(--fw-r-screen); overflow: hidden; margin-bottom: 1rem; }
+.fw-terminal-bar { background: #181E23; padding: 0.4rem 0.75rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--fw-screen-line); font-family: var(--fw-mono); font-size: 0.75rem; color: #93A1AC; }
+.fw-terminal-dots { display: flex; gap: 0.35rem; }
+.fw-terminal-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; background: #55626D; }
+.fw-terminal-body { padding: 0.85rem 1rem; font-family: var(--fw-mono); font-size: 0.85rem; line-height: 1.5; max-height: 380px; overflow-y: auto; }
+.fw-term-line { margin: 0.2rem 0; white-space: pre-wrap; word-break: break-all; color: var(--fw-screen-text); }
+.fw-term-prompt { color: #3FB6C4; font-weight: 500; } .fw-term-cmd { color: #F2F5F7; }
+.fw-term-ok { color: #5CCB86; } .fw-term-err { color: #F2766C; } .fw-term-dim { color: #7F8E99; }
 
-    .fw-step-item.active .fw-step-num {
-        background: var(--fw-primary);
-        color: #FFFFFF;
-    }
-
-    .fw-step-arrow {
-        color: var(--fw-border);
-        font-size: 0.75rem;
-    }
-
-    /* Cards and KPI elements */
-    .fw-card {
-        background: var(--fw-surface);
-        border: 1px solid var(--fw-border);
-        border-radius: 0.75rem;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
-        transition: border-color 200ms ease, box-shadow 200ms ease;
-    }
-
-    .fw-card:hover {
-        border-color: rgba(59, 130, 246, 0.5);
-    }
-
-    .fw-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-family: var(--fw-mono);
-        font-size: 0.8rem;
-        letter-spacing: 0.02em;
-    }
-
-    .fw-code-pill {
-        font-family: var(--fw-mono);
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid var(--fw-border);
-        padding: 0.1rem 0.4rem;
-        border-radius: 0.25rem;
-        font-size: 0.825rem;
-        color: #93C5FD;
-    }
-
-    /* Terminal Console */
-    .fw-terminal-window {
-        background: #080D1A;
-        border: 1px solid #1E293B;
-        border-radius: 0.75rem;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-        overflow: hidden;
-        margin-bottom: 1rem;
-    }
-
-    .fw-terminal-bar {
-        background: #0F172A;
-        padding: 0.4rem 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 1px solid #1E293B;
-        font-family: var(--fw-mono);
-        font-size: 0.75rem;
-        color: var(--fw-muted);
-    }
-
-    .fw-terminal-dots {
-        display: flex;
-        gap: 0.35rem;
-    }
-
-    .fw-terminal-dot {
-        width: 0.65rem;
-        height: 0.65rem;
-        border-radius: 50%;
-        display: inline-block;
-    }
-
-    .fw-terminal-dot.close { background: #EF4444; }
-    .fw-terminal-dot.min { background: #F59E0B; }
-    .fw-terminal-dot.max { background: #10B981; }
-
-    .fw-terminal-body {
-        padding: 0.85rem 1rem;
-        font-family: var(--fw-mono);
-        font-size: 0.85rem;
-        line-height: 1.5;
-        max-height: 380px;
-        overflow-y: auto;
-    }
-
-    .fw-term-line {
-        margin: 0.2rem 0;
-        white-space: pre-wrap;
-        word-break: break-all;
-    }
-
-    .fw-term-prompt {
-        color: #38BDF8;
-        font-weight: 600;
-    }
-
-    .fw-term-cmd {
-        color: #F8FAFC;
-    }
-
-    .fw-term-ok {
-        color: #34D399;
-    }
-
-    .fw-term-err {
-        color: #F87171;
-    }
-
-    .fw-term-dim {
-        color: #64748B;
-    }
-
-    /* Accessibility: Reduced motion */
-    @media (prefers-reduced-motion: reduce) {
-        .fw-workflow-rail, .fw-step-item, .fw-card {
-            transition: none !important;
-            animation: none !important;
-        }
-    }
-    </style>
-    """
-
+/* ---------- animasi masuk per halaman (sekali, singkat) ---------- */
+@keyframes fw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fw-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fw-from-left { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes fw-from-right { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes fw-reveal { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes fw-drop { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+@keyframes fw-zoom { from { opacity: 0; transform: scale(.975); } to { opacity: 1; transform: none; } }
+.st-key-fw_page_start_here { animation: fw-rise .45s ease-out both; }
+.st-key-fw_page_overview { animation: fw-zoom .4s ease-out both; }
+.st-key-fw_page_network { animation: fw-reveal .6s ease-out both; }
+.st-key-fw_page_device_config { animation: fw-from-right .4s ease-out both; }
+.st-key-fw_page_firewall_rules { animation: fw-rise .5s ease-out both; }
+.st-key-fw_page_packet_sim { animation: fw-from-left .4s ease-out both; }
+.st-key-fw_page_viz3d { animation: fw-fade .6s ease-out both; }
+.st-key-fw_page_traffic_logs { animation: fw-rise .35s ease-out both; }
+.st-key-fw_page_alerts { animation: fw-drop .4s ease-out both; }
+.st-key-fw_page_learning_lab { animation: fw-rise .5s ease-out both; }
+.st-key-fw_page_cli_console { animation: fw-fade .5s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  [class*="st-key-fw_page_"] { animation: none !important; }
+}
+</style>
+""".replace("__RAIL_W__", rail_w)

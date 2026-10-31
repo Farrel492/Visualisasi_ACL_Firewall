@@ -18,7 +18,7 @@ from firewall_sim.ui.components import (
     render_error_box,
     render_simulation_banner,
 )
-from firewall_sim.ui.state import apply_command, get_state, is_learning
+from firewall_sim.ui.state import apply_command, get_state
 
 
 def _validate_ipv4_cidr_inline(cidr_str: str) -> tuple[bool, str]:
@@ -184,16 +184,14 @@ def render_device_config_page() -> None:
                                     render_error_box(errors)
 
     with col_side:
-        # Panel Panduan Edukasi
-        if is_learning():
-            with st.container(border=True):
-                st.markdown("#### :material/school: Panduan Konfigurasi")
-                st.markdown(
-                    "- **IPv4 CIDR**: Alamat IP wajib disertai prefix subnet mask (misal `/24` untuk `255.255.255.0`).\n"
-                    "- **Subnet Gateway**: IP gateway host harus satu subnet dengan IP interface host tersebut.\n"
-                    "- **Switch L2**: Switch menghubungkan perangkat pada collision domain/subnet yang sama tanpa IP L3.\n"
-                    "- **Status Up/Down**: Paket tidak dapat melewati interface yang berada dalam status Down."
-                )
+        # Panel Panduan Konfigurasi
+        with st.expander(":material/school: Panduan Konfigurasi", expanded=False):
+            st.markdown(
+                "- **IPv4 CIDR**: Alamat IP wajib disertai prefix subnet mask (misal `/24` untuk `255.255.255.0`).\n"
+                "- **Subnet Gateway**: IP gateway host harus satu subnet dengan IP interface host tersebut.\n"
+                "- **Switch L2**: Switch menghubungkan perangkat pada collision domain/subnet yang sama tanpa IP L3.\n"
+                "- **Status Up/Down**: Paket tidak dapat melewati interface yang berada dalam status Down."
+            )
 
         # Langkah Berikutnya
         next_steps([

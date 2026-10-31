@@ -331,23 +331,6 @@ def test_T10_drop_packet_stops_at_firewall_in_3d_replay():
     assert "server" not in visited_devices
 
 
-def test_T11_ui_mode_toggle_preserves_project_state():
-    """T11: Pergantian Learning Mode ke Professional Mode tidak memutasi ProjectState."""
-    from firewall_sim.ui.state import get_state, get_ui_mode, set_ui_mode
-    import streamlit as st
-
-    state_before = default_lab()
-    st.session_state["fw_sim_project_state"] = state_before
-    st.session_state["fw_sim_ui_mode"] = "Learning"
-
-    set_ui_mode("Professional")
-
-    assert get_ui_mode() == "Professional"
-    state_after = get_state()
-    assert state_after == state_before
-    assert state_after.config_revision == state_before.config_revision
-
-
 def test_T12_normal_drop_event_is_not_labeled_attack():
     """T12: Event DROP normal tidak otomatis diberi label serangan/attack."""
     state = default_lab()

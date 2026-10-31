@@ -89,11 +89,8 @@ def render_overview_page() -> None:
                 st.markdown("#### :material/history: 5 Revisi Konfigurasi Terakhir")
                 recent_logs = list(reversed(state.audit_log[-5:]))
                 for entry in recent_logs:
-                    st.caption(
-                        f":material/commit: **Rev #{entry.revision}** (`{entry.command_name}`) — "
-                        f"{entry.details or 'Pembaruan konfigurasi'} <span style='opacity:0.6;'>({entry.timestamp[:19]})</span>",
-                        unsafe_allow_html=True,
-                    )
+                    stamp = entry.timestamp.strftime("%H:%M:%S")
+                    st.caption(f"`{stamp}`  **{entry.source}**  {entry.summary or 'Pembaruan konfigurasi'}")
 
     with col_side:
         # Kontrol Simpan / Muat Proyek JSON & Reset

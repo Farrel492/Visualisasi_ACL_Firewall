@@ -1,25 +1,61 @@
-[theme]
-base = "dark"
-primaryColor = "#3B82F6"
-backgroundColor = "#0F172A"
-secondaryBackgroundColor = "#1E293B"
-textColor = "#F9FAFB"
-borderColor = "#334155"
-font = "sans serif"
-baseRadius = "0.75rem"
-showWidgetBorder = true
-showSidebarBorder = true
+# Firewall Simulator - tema "meja lab jaringan"
+# Area kerja terang; layar instrumen gelap dibuat lewat komponen buatan sendiri.
 
-[theme.sidebar]
-backgroundColor = "#0B1220"
+[theme]
+base = "light"
+primaryColor = "#16808D"
+backgroundColor = "#E6E9EC"
+secondaryBackgroundColor = "#F4F5F6"
+textColor = "#18222B"
+borderColor = "#C2C9D0"
+linkColor = "#116672"
+font = "IBM Plex Sans, sans-serif"
+codeFont = "IBM Plex Mono, monospace"
+headingFont = "IBM Plex Sans, sans-serif"
+baseRadius = "6px"
+buttonRadius = "6px"
+showWidgetBorder = true
+showSidebarBorder = false
+greenColor = "#1F7A45"
+redColor = "#B8322A"
+orangeColor = "#9A6208"
+blueColor = "#116672"
+headingFontSizes = ["2rem", "1.35rem", "1.1rem"]
+headingFontWeights = [600, 600, 600]
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/IBMPlexSans-Regular.woff2"
+weight = "400"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "IBM Plex Sans"
+url = "app/static/fonts/IBMPlexSans-SemiBold.woff2"
+weight = "600"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "IBM Plex Mono"
+url = "app/static/fonts/IBMPlexMono-Regular.woff2"
+weight = "400"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "IBM Plex Mono"
+url = "app/static/fonts/IBMPlexMono-Medium.woff2"
+weight = "500"
+style = "normal"
 
 [server]
 headless = true
 enableCORS = false
 enableXsrfProtection = true
+enableStaticServing = true
 
 [client]
 toolbarMode = "minimal"
+showSidebarNavigation = false
 
 [browser]
 gatherUsageStats = false

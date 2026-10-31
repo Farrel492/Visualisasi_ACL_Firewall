@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="id" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<style>
+  @font-face { font-family: "IBM Plex Sans"; src: url("/app/static/fonts/IBMPlexSans-Regular.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "IBM Plex Sans"; src: url("/app/static/fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); font-weight: 600; }
+  @font-face { font-family: "IBM Plex Mono"; src: url("/app/static/fonts/IBMPlexMono-Regular.woff2") format("woff2"); font-weight: 400; }
+  :root { --screen: #1A2127; --line: #33404A; --text: #E7ECEF; --mute: #93A1AC;
+          --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; font-family: var(--sans); color: var(--text); }
+  #wrap { position: relative; background: var(--screen); border-radius: 10px; overflow: hidden; border: 1px solid #12181C; }
+  #bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); min-height: 44px; flex-wrap: wrap; }
+  #bar .hint { font-size: 12px; color: var(--mute); }
+  #bar .spacer { flex: 1; }
+  button { font: 600 12px var(--sans); color: var(--text); background: #2A343C; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  button:hover { background: #33404A; } button:disabled { opacity: .4; cursor: default; }
+  #step { font: 400 12px var(--mono); color: var(--mute); min-width: 92px; text-align: right; }
+  #stage { position: relative; width: 100%; height: 520px; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #msg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; color: var(--mute); font-size: 14px; }
+  #verdict { position: absolute; right: 12px; bottom: 12px; font: 600 12px var(--sans); padding: 6px 10px; border-radius: 6px; display: none; background: #0F1519; border: 1px solid var(--line); }
+  #caption { position: absolute; left: 12px; bottom: 12px; max-width: 60%; font-size: 12px; color: var(--text); background: rgba(15,21,25,.85); border: 1px solid var(--line); padding: 6px 9px; border-radius: 6px; display: none; line-height: 1.35; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="bar">
+    <span class="hint">Seret kosong untuk memutar, roda untuk zoom, seret perangkat untuk memindahkan</span>
+    <div class="spacer"></div>
+    <span id="step"></span>
+    <button id="prev">Mundur</button>
+    <button id="play">Putar paket</button>
+    <button id="next">Maju</button>
+    <button id="reset">Reset kamera</button>
+  </div>
+  <div id="stage"><canvas id="c"></canvas><div id="msg"></div><div id="caption"></div><div id="verdict"></div></div>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/OrbitControls.js";
+
+// ---------- protokol komponen Streamlit
+let args = null, nonceCount = 0;
+function send(type, data) { window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type }, data), "*"); }
+function setValue(v) { nonceCount++; v.nonce = Date.now() + "-" + nonceCount; send("streamlit:setComponentValue", { value: v, dataType: "json" }); }
+function setHeight() { send("streamlit:setFrameHeight", { height: document.getElementById("wrap").offsetHeight + 2 }); }
+window.addEventListener("message", (e) => { if (e.data && e.data.type === "streamlit:render") { args = e.data.args || {}; update(); } });
+send("streamlit:componentReady", { apiVersion: 1 });
+new ResizeObserver(() => { setHeight(); resize(); }).observe(document.getElementById("wrap"));
+
+// ---------- scene dasar
+const SCALE = 58;
+const canvas = document.getElementById("c");
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+} catch (err) {
+  const m = document.getElementById("msg"); m.style.display = "flex";
+  m.textContent = "WebGL tidak tersedia di browser ini. Gunakan tampilan 2D atau aktifkan akselerasi perangkat keras.";
+  setHeight();
+}
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a2127);
+scene.fog = new THREE.Fog(0x1a2127, 18, 34);
+const camera = new THREE.PerspectiveCamera(42, 2, 0.1, 100);
+const HOME = new THREE.Vector3(0, 9.5, 11.5);
+camera.position.copy(HOME);
+let controls = null;
+if (renderer) {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.48; controls.minDistance = 4; controls.maxDistance = 26;
+  controls.target.set(0, 0.4, 0);
+}
+scene.add(new THREE.HemisphereLight(0xdfe9f0, 0x1a2127, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(6, 12, 8); scene.add(sun);
+const fill = new THREE.DirectionalLight(0x8fb7c4, 0.5); fill.position.set(-8, 5, -6); scene.add(fill);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x20292f, roughness: 1 }));
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const grid = new THREE.GridHelper(40, 40, 0x33404a, 0x28323a); grid.position.y = 0.002; scene.add(grid);
+
+// ---------- bahan
+const M = {
+  body: new THREE.MeshStandardMaterial({ color: 0xcbd3da, roughness: 0.55, metalness: 0.1 }),
+  bodyDark: new THREE.MeshStandardMaterial({ color: 0x2c3a44, roughness: 0.7 }),
+  router: new THREE.MeshStandardMaterial({ color: 0x36505e, roughness: 0.5, metalness: 0.15 }),
+  screen: new THREE.MeshStandardMaterial({ color: 0x0f161b, roughness: 0.3, emissive: 0x0b2a1a, emissiveIntensity: 0.9 }),
+  led: new THREE.MeshBasicMaterial({ color: 0x3dba6f }),
+  ledOff: new THREE.MeshBasicMaterial({ color: 0x55616b }),
+  ledAmber: new THREE.MeshBasicMaterial({ color: 0xe3a33b }),
+  brick: new THREE.MeshStandardMaterial({ color: 0xe5584d, roughness: 0.8 }),
+  brick2: new THREE.MeshStandardMaterial({ color: 0xf0846f, roughness: 0.8 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0x8da0ac, roughness: 0.4, metalness: 0.5 }),
+};
+function box(w, h, d, mat, x = 0, y = 0, z = 0, parent) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); if (parent) parent.add(m); return m;
+}
+
+// ---------- model perangkat (prosedural, buatan sendiri)
+function modelPC() {
+  const g = new THREE.Group();
+  box(1.7, 1.05, 0.12, M.body, 0, 1.25, 0, g);          // bezel monitor
+  box(1.5, 0.85, 0.05, M.screen, 0, 1.25, 0.08, g);      // layar
+  box(0.18, 0.4, 0.14, M.body, 0, 0.62, -0.02, g);       // tiang
+  box(0.7, 0.06, 0.4, M.body, 0, 0.4, 0, g);             // alas
+  box(1.4, 0.07, 0.4, M.body, 0, 0.04, 0.85, g);          // papan ketik
+  box(0.5, 1.0, 0.7, M.body, 1.25, 0.5, -0.1, g);         // unit/tower
+  box(0.12, 0.04, 0.02, M.led, 1.25, 0.9, 0.26, g);
+  return { g, h: 1.9, r: 1.1 };
+}
+function modelSwitch(used) {
+  const g = new THREE.Group();
+  box(2.7, 0.42, 0.9, M.body, 0, 0.21, 0, g);
+  box(2.7, 0.06, 0.9, new THREE.MeshStandardMaterial({ color: 0xb3bec7 }), 0, 0.44, 0, g);
+  box(0.4, 0.26, 0.04, M.bodyDark, -1.1, 0.22, 0.46, g);
+  let n = 0;
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 12; c++) {
+    const x = -0.62 + c * 0.145, y = 0.28 - r * 0.15;
+    box(0.1, 0.09, 0.04, M.bodyDark, x, y, 0.46, g);
+    box(0.05, 0.02, 0.04, n < used ? M.led : M.ledOff, x, y - 0.065, 0.47, g); n++;
+  }
+  return { g, h: 0.6, r: 1.5 };
+}
+function modelRouter() {
+  const g = new THREE.Group();
+  box(2.3, 0.7, 1.2, M.router, 0, 0.35, 0, g);
+  box(2.3, 0.1, 1.2, new THREE.MeshStandardMaterial({ color: 0x2b424e }), 0, 0.72, 0, g);
+  for (const sx of [-0.8, 0.8]) {
+    const a = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 8), M.metal); a.position.set(sx, 1.15, -0.4); g.add(a);
+    const t = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), M.metal); t.position.set(sx, 1.62, -0.4); g.add(t);
+  }
+  // lambang tembok api di sisi depan
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    const off = r === 1 ? 0.27 : 0;
+    box(0.5, 0.17, 0.05, r === 1 ? M.brick : M.brick2, -0.72 + c * 0.55 + off - 0.14, 0.52 - r * 0.2, 0.62, g);
+  }
+  for (let i = 0; i < 4; i++) box(0.07, 0.07, 0.04, i < 3 ? M.led : M.ledAmber, 0.5 + i * 0.16, 0.16, 0.62, g);
+  return { g, h: 1.7, r: 1.5 };
+}
+function modelServer(used) {
+  const g = new THREE.Group();
+  box(1.2, 2.0, 1.1, M.body, 0, 1.0, 0, g);
+  box(1.2, 0.08, 1.1, new THREE.MeshStandardMaterial({ color: 0xb3bec7 }), 0, 2.02, 0, g);
+  for (let i = 0; i < 5; i++) {
+    box(0.85, 0.25, 0.04, M.bodyDark, -0.08, 1.7 - i * 0.32, 0.56, g);
+    box(0.4, 0.04, 0.04, new THREE.MeshStandardMaterial({ color: 0x5e6e7a }), -0.2, 1.7 - i * 0.32, 0.585, g);
+    box(0.06, 0.06, 0.04, i < 3 ? M.led : M.ledOff, 0.43, 1.7 - i * 0.32, 0.58, g);
+  }
+  box(0.7, 0.1, 0.9, M.metal, 0, 0.05, 0, g);
+  return { g, h: 2.2, r: 1.1 };
+}
+
+function makeLabel(name, sub) {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 160;
+  const x = c.getContext("2d");
+  x.fillStyle = "rgba(15,21,25,0.86)"; roundRect(x, 8, 12, 496, 132, 18); x.fill();
+  x.strokeStyle = "#33404A"; x.lineWidth = 3; roundRect(x, 8, 12, 496, 132, 18); x.stroke();
+  x.fillStyle = "#E7ECEF"; x.font = "600 54px 'IBM Plex Sans', 'Segoe UI', sans-serif"; x.textAlign = "center";
+  x.fillText(name, 256, 74, 470);
+  x.fillStyle = "#93A1AC"; x.font = "400 38px 'IBM Plex Mono', Consolas, monospace";
+  x.fillText(sub, 256, 124, 470);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  s.scale.set(2.9, 0.9, 1); s.renderOrder = 10; return s;
+}
+function smallLabel(text, color) {
+  const c = document.createElement("canvas"); c.width = 192; c.height = 64;
+  const x = c.getContext("2d");
+  x.font = "500 38px 'IBM Plex Mono', Consolas, monospace"; x.textAlign = "center";
+  x.lineWidth = 8; x.strokeStyle = "#1A2127"; x.strokeText(text, 96, 44); x.fillStyle = color; x.fillText(text, 96, 44);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  s.scale.set(1.2, 0.4, 1); s.renderOrder = 11; return s;
+}
+function roundRect(x, px, py, w, h, r) { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); }
+
+// ---------- isi scene
+let nodes = {};         // id -> {group, hit, h, r, data}
+let cableMeshes = [];
+let cableLabels = [];
+let dynamic = new THREE.Group(); scene.add(dynamic);
+let selRing = null;
+let packet = null, pulse = null;
+let stepIdx = -1, anim = null, lastTest = null, firstBuild = true, introStart = 0;
+
+const toWorld = (px, py) => new THREE.Vector3((px - 500) / SCALE, 0, (py - 280) / SCALE);
+const toPixel = (v) => [Math.round((v.x * SCALE + 500) / 10) * 10, Math.round((v.z * SCALE + 280) / 10) * 10];
+
+function clearDynamic() {
+  while (dynamic.children.length) {
+    const o = dynamic.children.pop();
+    o.traverse((n) => { if (n.geometry) n.geometry.dispose(); if (n.material && n.material.map) n.material.map.dispose(); });
+  }
+  nodes = {}; cableMeshes = []; cableLabels = []; packet = null; pulse = null; selRing = null;
+}
+
+function build() {
+  clearDynamic();
+  const d = args.data;
+  d.devices.forEach((v, i) => {
+    let m;
+    if (v.type === "pc") m = modelPC(); else if (v.type === "switch") m = modelSwitch(v.ports_used);
+    else if (v.type === "router") m = modelRouter(); else m = modelServer(v.ports_used);
+    const group = new THREE.Group();
+    group.add(m.g);
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(m.r, 28), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }));
+    shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; group.add(shadow);
+    const label = makeLabel(v.name, v.ip || (v.type === "switch" ? v.ports_used + "/" + v.ports_total + " port" : "tanpa IP"));
+    label.position.set(0, m.h + 0.75, 0); group.add(label);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(m.r * 2, m.h, m.r * 1.4), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = m.h / 2; hit.userData.id = v.id; group.add(hit);
+    const p = toWorld(v.x, v.y); group.position.copy(p);
+    if (v.type === "router" || v.type === "switch" || v.type === "server") group.rotation.y = 0;
+    dynamic.add(group);
+    nodes[v.id] = { group, hit, h: m.h, r: m.r, data: v };
+    if (firstBuild && !reduceMotion) { group.scale.setScalar(0.001); group.userData.delay = 0.35 + i * 0.12; }
+  });
+  d.links.forEach((l) => { cableMeshes.push({ link: l, mesh: null, label: [null, null] }); });
+  rebuildCables();
+  if (d.selected && nodes[d.selected]) {
+    selRing = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.12, 48), new THREE.MeshBasicMaterial({ color: 0x3fb6c4, side: THREE.DoubleSide }));
+    selRing.rotation.x = -Math.PI / 2; selRing.position.y = 0.03; dynamic.add(selRing);
+    placeRing();
+  }
+  const pk = new THREE.Group();
+  pk.add(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), new THREE.MeshStandardMaterial({ color: 0xf2c14e, emissive: 0xf2c14e, emissiveIntensity: 0.9 })));
+  const pl = new THREE.PointLight(0xf2c14e, 1.6, 4); pk.add(pl);
+  pk.visible = false; dynamic.add(pk); packet = pk;
+  pulse = new THREE.Mesh(new THREE.RingGeometry(0.8, 0.95, 40), new THREE.MeshBasicMaterial({ color: 0xe5584d, transparent: true, opacity: 0, side: THREE.DoubleSide }));
+  pulse.rotation.x = -Math.PI / 2; pulse.position.y = 0.05; dynamic.add(pulse);
+  if (firstBuild) { introStart = performance.now(); }
+  firstBuild = false;
+}
+function placeRing() {
+  const sel = args.data.selected;
+  if (selRing && nodes[sel]) { selRing.position.x = nodes[sel].group.position.x; selRing.position.z = nodes[sel].group.position.z; const s = nodes[sel].r * 1.05; selRing.scale.set(s, s, 1); }
+}
+function portPoint(id) { const n = nodes[id]; const p = n.group.position.clone(); p.y = Math.min(0.32, n.h * 0.3); return p; }
+
+function rebuildCables() {
+  cableMeshes.forEach((c) => {
+    if (c.mesh) { dynamic.remove(c.mesh); c.mesh.geometry.dispose(); }
+    c.label.forEach((s) => { if (s) dynamic.remove(s); });
+    const l = c.link; if (!nodes[l.a] || !nodes[l.b]) return;
+    const a = portPoint(l.a), b = portPoint(l.b);
+    const mid = a.clone().add(b).multiplyScalar(0.5); mid.y = 0.06;
+    const curve = new THREE.CatmullRomCurve3([a, a.clone().lerp(mid, 0.5), mid, mid.clone().lerp(b, 0.5), b]);
+    const serial = l.kind === "se";
+    const mat = new THREE.MeshStandardMaterial({ color: !l.enabled ? 0x5b6772 : serial ? 0xe3a33b : 0x9fb3c0, roughness: 0.5 });
+    c.mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.045, 8), mat); dynamic.add(c.mesh);
+    const dir = b.clone().sub(a).normalize();
+    const ra = nodes[l.a].r * 0.85 + 0.2, rb = nodes[l.b].r * 0.85 + 0.2;
+    const la = smallLabel(l.a_if, "#B6C2CB"), lb = smallLabel(l.b_if, "#B6C2CB");
+    la.position.copy(a).addScaledVector(dir, ra); la.position.y = 0.55;
+    lb.position.copy(b).addScaledVector(dir, -rb); lb.position.y = 0.55;
+    dynamic.add(la); dynamic.add(lb); c.label = [la, lb];
+  });
+}
+
+// ---------- interaksi: drag perangkat
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+let dragId = null, dragOffset = new THREE.Vector3(), moved = false, downAt = null;
+function setPtr(ev) { const r = canvas.getBoundingClientRect(); ptr.x = ((ev.clientX - r.left) / r.width) * 2 - 1; ptr.y = -((ev.clientY - r.top) / r.height) * 2 + 1; ray.setFromCamera(ptr, camera); }
+canvas.addEventListener("pointerdown", (ev) => {
+  if (!renderer) return; setPtr(ev);
+  const hits = ray.intersectObjects(Object.values(nodes).map((n) => n.hit), false);
+  if (!hits.length) return;
+  dragId = hits[0].object.userData.id; moved = false; downAt = { x: ev.clientX, y: ev.clientY };
+  const hitPoint = new THREE.Vector3(); ray.ray.intersectPlane(dragPlane, hitPoint);
+  dragOffset.copy(nodes[dragId].group.position).sub(hitPoint);
+  if (args.data.editable) { controls.enabled = false; canvas.setPointerCapture(ev.pointerId); canvas.style.cursor = "grabbing"; }
+});
+canvas.addEventListener("pointermove", (ev) => {
+  if (!renderer) return; setPtr(ev);
+  if (dragId && args.data.editable) {
+    if (Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > 4) moved = true;
+    const p = new THREE.Vector3(); if (!ray.ray.intersectPlane(dragPlane, p)) return;
+    p.add(dragOffset);
+    p.x = Math.max(-8, Math.min(8, p.x)); p.z = Math.max(-4.6, Math.min(4.6, p.z));
+    nodes[dragId].group.position.set(p.x, 0, p.z);
+    rebuildCables(); placeRing();
+  } else {
+    const hits = ray.intersectObjects(Object.values(nodes).map((n) => n.hit), false);
+    canvas.style.cursor = hits.length ? "grab" : "default";
+  }
+});
+function endDrag(ev) {
+  if (!dragId) return;
+  const id = dragId; dragId = null; controls.enabled = true; canvas.style.cursor = "default";
+  try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+  if (moved && args.data.editable) {
+    const out = {}; args.data.devices.forEach((v) => { const n = nodes[v.id]; out[v.id] = toPixel(n.group.position); });
+    setValue({ type: "layout", positions: out, selected: id });
+  } else { setValue({ type: "select", id }); }
+}
+canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
+
+// ---------- replay paket
+const $ = (id) => document.getElementById(id);
+const playBtn = $("play"), prevBtn = $("prev"), nextBtn = $("next"), stepEl = $("step"), verdictEl = $("verdict"), capEl = $("caption");
+let packetFrom = null, packetTo = null, packetT = 1, pulseStart = 0;
+function replay() { return args && args.data && args.data.replay; }
+function colorOf(dec) { return dec === "ACCEPT" ? 0x3dba6f : dec === "DROP" ? 0xe5584d : 0xe3a33b; }
+function applyStep(n, animate) {
+  const r = replay(); if (!r || r.path.length < 2) return;
+  const last = r.path.length - 1; n = Math.max(0, Math.min(n, last));
+  const prevIdx = stepIdx; stepIdx = n;
+  const id = r.path[n]; if (!nodes[id]) return;
+  const to = nodes[id].group.position.clone(); to.y = 0.9;
+  packet.visible = true;
+  if (animate && prevIdx >= 0 && !reduceMotion) { packetFrom = packet.position.clone(); packetTo = to; packetT = 0; } else { packet.position.copy(to); packetFrom = null; packetT = 1; }
+  if (!reduceMotion && controls) { focusTarget = nodes[id].group.position.clone(); }
+  refreshHud();
+  if (n === last) {
+    pulse.material.color.setHex(colorOf(r.decision)); pulse.position.x = nodes[id].group.position.x; pulse.position.z = nodes[id].group.position.z;
+    pulse.scale.setScalar(nodes[id].r); pulseStart = performance.now(); pulse.userData.base = nodes[id].r;
+  }
+}
+let focusTarget = null;
+function refreshHud() {
+  const r = replay();
+  const has = !!(r && r.path.length > 1);
+  [playBtn, prevBtn, nextBtn, stepEl].forEach((b) => (b.style.display = has ? "" : "none"));
+  verdictEl.style.display = "none"; capEl.style.display = "none";
+  if (!has) return;
+  const last = r.path.length - 1;
+  stepEl.textContent = stepIdx < 0 ? "Siap diputar" : "Langkah " + (stepIdx + 1) + "/" + (last + 1);
+  prevBtn.disabled = stepIdx <= 0; nextBtn.disabled = stepIdx >= last;
+  if (stepIdx >= 0) {
+    const st = r.steps.find((s) => s.device === r.path[stepIdx]);
+    if (st) { capEl.textContent = st.text; capEl.style.display = "block"; }
+  }
+  if (stepIdx === last) {
+    verdictEl.style.display = "block";
+    verdictEl.style.color = "#" + colorOf(r.decision).toString(16).padStart(6, "0");
+    verdictEl.textContent = r.decision === "ACCEPT" ? "ACCEPT: paket sampai tujuan" : r.decision === "DROP" ? "DROP: paket berhenti di router" : r.decision;
+  }
+}
+prevBtn.onclick = () => { stopAnim(); applyStep(stepIdx - 1, true); };
+nextBtn.onclick = () => { stopAnim(); applyStep(stepIdx + 1, true); };
+playBtn.onclick = () => {
+  const r = replay(); if (!r) return;
+  if (anim) { stopAnim(); return; }
+  stepIdx = -1; applyStep(0, false); playBtn.textContent = "Berhenti";
+  anim = setInterval(() => { if (stepIdx >= r.path.length - 1) { stopAnim(); return; } applyStep(stepIdx + 1, true); }, reduceMotion ? 350 : 1100);
+};
+function stopAnim() { if (anim) { clearInterval(anim); anim = null; } playBtn.textContent = "Putar paket"; }
+$("reset").onclick = () => { if (!controls) return; camTween = { from: camera.position.clone(), to: HOME.clone(), t0: performance.now(), dur: 700 }; controls.target.set(0, 0.4, 0); focusTarget = null; };
+
+// ---------- update dari Python
+function update() {
+  if (!renderer || dragId) return;
+  const d = args.data;
+  const sig = JSON.stringify([d.devices.map((v) => [v.id, v.type, v.name, v.ip, v.ports_used]), d.links, d.selected, d.revision]);
+  const layoutSig = JSON.stringify(d.devices.map((v) => [v.id, v.x, v.y]));
+  if (sig !== update.sig || layoutSig !== update.layoutSig) { update.sig = sig; update.layoutSig = layoutSig; build(); }
+  const r = replay();
+  const tid = r ? r.test_id + ":" + r.decision : null;
+  if (tid !== lastTest) { lastTest = tid; stopAnim(); stepIdx = -1; if (packet) packet.visible = false; refreshHud(); if (r && r.path.length > 1 && args.autoplay) { playBtn.onclick(); } }
+  else refreshHud();
+  resize(); setHeight();
+}
+
+// ---------- loop render
+let camTween = null;
+function resize() {
+  if (!renderer) return;
+  const st = $("stage"); const w = st.clientWidth, h = st.clientHeight;
+  if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+}
+function tick(now) {
+  requestAnimationFrame(tick);
+  if (!renderer) return;
+  // animasi masuk
+  if (introStart) {
+    const t = Math.min((now - introStart) / 1100, 1);
+    if (!reduceMotion) { const e = 1 - Math.pow(1 - t, 3); camera.position.lerpVectors(new THREE.Vector3(0, 16, 20), HOME, e); }
+    Object.values(nodes).forEach((n) => { const dl = n.group.userData.delay || 0; const k = Math.min(Math.max(((now - introStart) / 1000 - dl) / 0.4, 0), 1); n.group.scale.setScalar(Math.max(k * (2 - k), 0.001)); });
+    if (t >= 1) introStart = 0;
+  }
+  if (camTween) { const k = Math.min((now - camTween.t0) / camTween.dur, 1); camera.position.lerpVectors(camTween.from, camTween.to, k * (2 - k)); if (k >= 1) camTween = null; }
+  if (focusTarget && controls) { controls.target.lerp(new THREE.Vector3(focusTarget.x, 0.4, focusTarget.z), 0.06); if (controls.target.distanceTo(new THREE.Vector3(focusTarget.x, 0.4, focusTarget.z)) < 0.02) focusTarget = null; }
+  if (packet && packetT < 1 && packetFrom) { packetT = Math.min(packetT + 0.04, 1); const k = packetT * (2 - packetT); packet.position.lerpVectors(packetFrom, packetTo, k); packet.position.y = 0.9 + Math.sin(k * Math.PI) * 0.5; }
+  if (pulse && pulseStart) {
+    const k = ((now - pulseStart) % 1400) / 1400;
+    pulse.material.opacity = (1 - k) * 0.9; pulse.scale.setScalar((pulse.userData.base || 1) * (0.8 + k * 1.2));
+    if (reduceMotion) pulse.material.opacity = 0.5;
+  }
+  if (packet && packet.visible && !reduceMotion) packet.rotation.y += 0.03;
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

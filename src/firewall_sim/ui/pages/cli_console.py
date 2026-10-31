@@ -192,7 +192,7 @@ def render_cli_console_page() -> None:
                         set_state_from_cli(new_state)
                     st.rerun()
 
-        # Referensi Perintah (Learning Mode tersimpulkan tanpa is_learning)
+        # Referensi Perintah
         with st.expander(":material/menu_book: Referensi Sintaks"):
             st.markdown(
                 "| Perintah | Keterangan |\n"

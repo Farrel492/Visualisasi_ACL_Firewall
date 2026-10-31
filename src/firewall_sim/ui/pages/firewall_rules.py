@@ -26,7 +26,7 @@ from firewall_sim.ui.components import (
     render_simulation_banner,
     render_workflow_rail,
 )
-from firewall_sim.ui.state import apply_command, get_state, is_learning
+from firewall_sim.ui.state import apply_command, get_state
 
 
 def render_firewall_rules_page() -> None:
@@ -218,17 +218,15 @@ def render_firewall_rules_page() -> None:
                         render_error_box(errors)
 
     with col_side:
-        # Panduan Edukasi (Khusus Learning Mode)
-        if is_learning():
-            with st.container(border=True):
-                st.markdown("#### :material/school: Konsep Penting")
-                st.markdown(
-                    "- **Rule Ordering**: Firewall mengevaluasi nomor order terendah lebih dulu.\n"
-                    "- **First Match Wins**: Begitu kriteria paket cocok, keputusan langsung diambil dan evaluasi selesai.\n"
-                    "- **Chain FORWARD**: Untuk paket yang melintasi router antar subnet.\n"
-                    "- **Chain INPUT**: Untuk paket menuju interface router sendiri.\n"
-                    "- **Default Policy**: Berlaku jika sampai akhir chain tidak ada rule yang cocok."
-                )
+        # Panduan Konsep
+        with st.expander(":material/school: Konsep Penting", expanded=False):
+            st.markdown(
+                "- **Rule Ordering**: Firewall mengevaluasi nomor order terendah lebih dulu.\n"
+                "- **First Match Wins**: Begitu kriteria paket cocok, keputusan langsung diambil dan evaluasi selesai.\n"
+                "- **Chain FORWARD**: Untuk paket yang melintasi router antar subnet.\n"
+                "- **Chain INPUT**: Untuk paket menuju interface router sendiri.\n"
+                "- **Default Policy**: Berlaku jika sampai akhir chain tidak ada rule yang cocok."
+            )
 
         # Langkah Berikutnya
         next_steps([
