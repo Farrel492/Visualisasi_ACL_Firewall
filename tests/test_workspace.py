@@ -30,7 +30,6 @@ def _sample_snapshot():
         "logs": [create_log_entry(pkt, res)],
         "events": list(derive_alerts(res, AlertPolicy(highlight_drop=True))),
         "cli_log": [("show rules", "ok", [])],
-        "mode": "Professional",
         "layout": {"pc_a": [120.0, 150.0]},
         "cables": {"link_r_srv": "se"},
     }
@@ -46,7 +45,6 @@ def test_snapshot_round_trip_preserves_everything():
     assert back["pairs"] == snap["pairs"]
     assert back["logs"] == snap["logs"]
     assert back["events"] == snap["events"]
-    assert back["mode"] == "Professional"
     assert back["layout"] == snap["layout"]
     assert back["cables"] == snap["cables"]
 

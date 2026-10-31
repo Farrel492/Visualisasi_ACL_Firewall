@@ -8,6 +8,7 @@ ATURAN ARSITEKTUR:
 from __future__ import annotations
 
 import hashlib
+import os
 from typing import Any, Dict, List, Optional, Tuple
 import streamlit as st
 
@@ -73,7 +74,6 @@ def _apply_snapshot(snap: Dict[str, Any]) -> None:
     st.session_state[KEY_TRAFFIC_LOGS] = list(snap["logs"])
     st.session_state[KEY_EVENTS] = list(snap["events"])
     st.session_state[KEY_CLI_LOG] = list(snap["cli_log"])
-    st.session_state[KEY_MODE] = snap.get("mode", "Learning")
     st.session_state[KEY_LAYOUT] = dict(snap.get("layout", {}))
     st.session_state[KEY_CABLES] = dict(snap.get("cables", {}))
 
@@ -117,7 +117,6 @@ def snapshot_now() -> Dict[str, Any]:
         "logs": list(st.session_state[KEY_TRAFFIC_LOGS]),
         "events": list(st.session_state[KEY_EVENTS]),
         "cli_log": list(st.session_state[KEY_CLI_LOG]),
-        "mode": st.session_state[KEY_MODE],
         "layout": dict(st.session_state[KEY_LAYOUT]),
         "cables": dict(st.session_state[KEY_CABLES]),
     }
@@ -142,7 +141,9 @@ def persist_workspace() -> None:
             if ws.write_snapshot(st.session_state[KEY_TOKEN], snap):
                 st.session_state[KEY_LAST_SAVED] = digest
     except Exception:  # noqa: BLE001
-        # Penyimpanan tidak boleh menjatuhkan aplikasi.
+        if os.getenv("FW_DEV") == "1" or "PYTEST_CURRENT_TEST" in os.environ:
+            raise
+        # Penyimpanan tidak boleh menjatuhkan aplikasi di produksi.
         pass
 
 
