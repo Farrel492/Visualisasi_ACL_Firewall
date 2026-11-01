@@ -49,7 +49,7 @@ Aplikasi menyediakan terminal CLI interaktif dengan tata bahasa berikut:
 - `test <src_device> <dst_device_or_ip> <tcp|udp|icmp> [port]` : Simulasi paket virtual via CLI.
 
 ## Diagnostik Browser & Pengaturan Toolbar
-- **Terjemahan Otomatis Browser**: Harap nonaktifkan fitur terjemahan otomatis peramban (seperti Google Translate / Edge Translate) untuk alamat `localhost`. Modifikasi DOM teks oleh ekstensi terjemahan peramban pada elemen React Streamlit dapat memicu galat runtime peramban `NotFoundError: Failed to execute 'removeChild' on 'Node'`.
+- **Terjemahan Otomatis Browser (Wajib Dinonaktifkan)**: Harap nonaktifkan fitur terjemahan otomatis peramban (Google Chrome Translate / Microsoft Edge Translate) untuk alamat `localhost`. Fitur terjemahan otomatis merusak teks dan label teknis (misalnya chip CLI `help` diterjemahkan keliru menjadi "membantu", dan perintah ACL `permit` menjadi "pember"), serta memodifikasi struktur DOM teks internal React Streamlit yang memicu galat runtime fatal `NotFoundError: Failed to execute 'removeChild' on 'Node'`. Matikan terjemahan untuk situs localhost pada pengaturan peramban Anda.
 - **Mode Toolbar Pengembang**: Toolbar bawaan Streamlit secara default diatur ke `toolbarMode = "minimal"` pada `.streamlit/config.toml` guna menyembunyikan tombol Deploy dan menu bawaan yang mengganggu presentasi. Jika Anda memerlukan menu developer saat debugging lokal, ubah menjadi `toolbarMode = "developer"`.
 
 ## Dokumentasi Lengkap

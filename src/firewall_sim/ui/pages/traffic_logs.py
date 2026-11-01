@@ -14,8 +14,23 @@ from firewall_sim.ui.components import (
     render_simulation_banner,
     render_workflow_rail,
 )
-from firewall_sim.ui.state import get_traffic_logs
+from firewall_sim.ui.state import clear_traffic_logs, get_traffic_logs
 from firewall_sim.ui.theme import get_decision_badge
+
+
+
+@st.dialog("Kosongkan Log Trafik")
+def _dialog_clear_traffic_logs():
+    st.write("Semua catatan log trafik simulasi akan dihapus permanen dari memori sesi.")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Ya, kosongkan", type="primary", key="btn_confirm_clear_logs", use_container_width=True):
+            clear_traffic_logs()
+            st.toast("Log trafik berhasil dikosongkan.")
+            st.rerun()
+    with c2:
+        if st.button("Batal", key="btn_cancel_clear_logs", use_container_width=True):
+            st.rerun()
 
 
 def render_traffic_logs_page() -> None:
@@ -66,7 +81,13 @@ def render_traffic_logs_page() -> None:
 
         filtered_logs = filter_traffic(logs, decision=sel_dec, ip_or_device=search_ip)
 
-        st.caption(f"Menampilkan **{len(filtered_logs)}** dari total **{len(logs)}** catatan log virtual.")
+        col_cap, col_clr = st.columns([3, 1.4])
+        with col_cap:
+            st.caption(f"Menampilkan **{len(filtered_logs)}** dari total **{len(logs)}** catatan log virtual.")
+        with col_clr:
+            if logs:
+                if st.button("Kosongkan log", icon=":material/delete:", key="btn_clear_logs", use_container_width=True):
+                    _dialog_clear_traffic_logs()
 
         # Tabel Log Terformat
         if not filtered_logs:

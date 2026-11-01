@@ -16,6 +16,7 @@ from firewall_sim.ui.components import (
 )
 from firewall_sim.ui.state import (
     clear_simulation_data,
+    new_workspace,
     get_security_events,
     get_state,
     get_traffic_logs,
@@ -23,6 +24,21 @@ from firewall_sim.ui.state import (
     set_project_state,
 )
 from firewall_sim.ui.theme import get_decision_badge
+
+
+
+@st.dialog("Mulai Proyek Baru")
+def _dialog_new_project():
+    st.write("Sesi kerja baru yang bersih akan dibuat. Proyek sebelumnya tetap tersimpan di riwayat arsip.")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Ya, buat proyek baru", type="primary", key="btn_confirm_new_project", use_container_width=True):
+            new_workspace()
+            st.toast("Proyek baru berhasil dibuat.")
+            st.rerun()
+    with c2:
+        if st.button("Batal", key="btn_cancel_new_project", use_container_width=True):
+            st.rerun()
 
 
 def render_overview_page() -> None:
@@ -93,13 +109,17 @@ def render_overview_page() -> None:
                     st.caption(f"`{stamp}`  **{entry.source}**  {entry.summary or 'Pembaruan konfigurasi'}")
 
     with col_side:
-        # Kontrol Simpan / Muat Proyek JSON & Reset
+        # Kontrol Manajemen Proyek (Proyek baru, Ekspor, Impor)
         with st.container(border=True):
-            st.markdown("#### :material/save: Persistensi Proyek")
+            st.markdown("#### :material/folder: Manajemen Proyek")
+
+            if st.button("Proyek baru", icon=":material/note_add:", use_container_width=True, key="btn_new_project"):
+                _dialog_new_project()
 
             json_export = save_project(state)
             st.download_button(
-                label=":material/download: Unduh Proyek (JSON)",
+                label="Ekspor proyek (JSON)",
+                icon=":material/download:",
                 data=json_export,
                 file_name=f"firewall_project_rev{state.config_revision}.json",
                 mime="application/json",
@@ -107,26 +127,26 @@ def render_overview_page() -> None:
                 key="btn_download_json",
             )
 
-            with st.expander(":material/upload: Unggah Berkas JSON"):
-                uploaded_file = st.file_uploader("Pilih Berkas JSON", type=["json"], key="json_uploader")
+            with st.expander("Impor proyek"):
+                uploaded_file = st.file_uploader("Pilih berkas JSON proyek", type=["json"], key="json_uploader")
                 if uploaded_file is not None:
                     content = uploaded_file.getvalue().decode("utf-8")
                     loaded_state, errors = load_project(content)
                     if loaded_state:
                         set_project_state(loaded_state)
-                        st.toast("Proyek berhasil dimuat dari JSON!")
+                        st.toast("Proyek berhasil diimpor dari JSON!")
                         st.rerun()
                     else:
                         render_error_box(errors)
 
             with st.expander(":material/restart_alt: Reset Topologi"):
-                if st.button(":material/restart_alt: Reset ke Default Lab", use_container_width=True, key="btn_reset_default"):
+                if st.button("Reset ke Default Lab", icon=":material/restart_alt:", use_container_width=True, key="btn_reset_default"):
                     reset_to_preset("default")
                     clear_simulation_data()
                     st.toast("Topologi direset ke 'Default Lab'!")
                     st.rerun()
 
-                if st.button(":material/delete: Reset ke Proyek Kosong", use_container_width=True, key="btn_reset_empty"):
+                if st.button("Reset ke Proyek Kosong", icon=":material/delete:", use_container_width=True, key="btn_reset_empty"):
                     reset_to_preset("empty")
                     clear_simulation_data()
                     st.toast("Topologi direset ke 'Proyek Kosong'!")

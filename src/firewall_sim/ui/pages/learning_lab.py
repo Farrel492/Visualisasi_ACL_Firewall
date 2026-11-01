@@ -14,6 +14,7 @@ from firewall_sim.ui.components import (
 from firewall_sim.ui.state import (
     add_simulation_run,
     get_state,
+    set_nav_page,
     set_project_state,
 )
 from firewall_sim.ui.theme import get_decision_badge
@@ -38,7 +39,7 @@ def render_learning_lab_page() -> None:
 
         for sc in scenarios:
             is_active = (curr_scen_id == sc.id)
-            active_badge = " -> [AKTIF DI WORKSPACE]" if is_active else ""
+            active_badge = " [Aktif]" if is_active else ""
 
             with st.container(border=True):
                 st.markdown(f"### {sc.title}{active_badge}")
@@ -48,13 +49,14 @@ def render_learning_lab_page() -> None:
                     for idx, step in enumerate(sc.steps, 1):
                         st.markdown(f"{idx}. {step}")
 
-                st.markdown(f"**Hasil yang Diharapkan:** `{sc.expected_decision.value}` — *{sc.expected_result}*")
+                st.markdown(f"**Hasil yang Diharapkan:** `{sc.expected_decision.value}` ({sc.expected_result})")
 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     if st.button("Muat ke Workspace", icon=":material/download:", key=f"load_{sc.id}", type="primary" if is_active else "secondary", use_container_width=True):
                         new_state = sc.factory()
                         set_project_state(new_state)
+                        set_nav_page("network")
                         st.toast(f"Skenario '{sc.title}' berhasil dimuat!")
                         st.rerun()
 

@@ -331,6 +331,23 @@ def test_T10_drop_packet_stops_at_firewall_in_3d_replay():
     assert "server" not in visited_devices
 
 
+def test_T11_page_navigation_does_not_mutate_project_state():
+    """T11: Navigasi halaman tidak memutasi ProjectState (mutasi hanya sah lewat apply_command)."""
+    from firewall_sim.ui.state import get_nav_page, get_state, set_nav_page
+    import streamlit as st
+
+    state_before = default_lab()
+    st.session_state["fw_sim_project_state"] = state_before
+    st.session_state["nav_page"] = "start_here"
+
+    for page in ["network", "device_config", "firewall_rules", "packet_sim", "viz3d", "overview"]:
+        set_nav_page(page)
+        assert get_nav_page() == page
+        state_current = get_state()
+        assert state_current == state_before
+        assert state_current.config_revision == state_before.config_revision
+
+
 def test_T12_normal_drop_event_is_not_labeled_attack():
     """T12: Event DROP normal tidak otomatis diberi label serangan/attack."""
     state = default_lab()
@@ -406,3 +423,84 @@ def test_T14_unknown_cli_command_safe_error_no_subprocess():
         assert len(errors) >= 1
         assert new_state == state
         assert any("tidak dikenal" in err.lower() or "sintaks" in err.lower() for err in errors)
+
+
+def test_B1_learning_lab_scenario_load():
+    """B1: Pemuatan skenario Lab Belajar memutasi state dan mengubah nav_page ke network."""
+    from firewall_sim.scenarios.presets import list_scenarios
+    from firewall_sim.ui.state import get_nav_page, get_state, set_nav_page, set_project_state
+
+    scenarios = list_scenarios()
+    assert len(scenarios) >= 4
+    sc = scenarios[0]
+
+    new_state = sc.factory()
+    set_project_state(new_state)
+    set_nav_page("network")
+
+    assert get_state() == new_state
+    assert get_nav_page() == "network"
+
+
+def test_B3_clear_state_functions_isolation():
+    """B3: Fungsi clear_* di state.py mengosongkan kategori masing-masing secara terisolasi."""
+    from firewall_sim.ui.state import (
+        clear_cli_history,
+        clear_security_events,
+        clear_test_history,
+        clear_traffic_logs,
+        get_cli_history,
+        get_security_events,
+        get_simulation_history,
+        get_simulation_pairs,
+        get_traffic_logs,
+        load_demo_scenario,
+        record_cli_interaction,
+    )
+
+    ok, _ = load_demo_scenario()
+    assert ok
+    record_cli_interaction("help", "Panduan CLI", [])
+
+    assert len(get_simulation_history()) >= 1
+    assert len(get_simulation_pairs()) >= 1
+    assert len(get_traffic_logs()) >= 1
+    assert len(get_security_events()) >= 1
+    assert len(get_cli_history()) >= 1
+
+    clear_test_history()
+    assert len(get_simulation_history()) == 0
+    assert len(get_simulation_pairs()) == 0
+    assert len(get_traffic_logs()) >= 1
+    assert len(get_security_events()) >= 1
+
+    clear_traffic_logs()
+    assert len(get_traffic_logs()) == 0
+    assert len(get_security_events()) >= 1
+
+    clear_security_events()
+    assert len(get_security_events()) == 0
+
+    clear_cli_history()
+    assert len(get_cli_history()) == 0
+
+
+def test_B5_workspace_new_and_project_export_import():
+    """B5: Proyek baru via new_workspace dan ekspor-impor proyek JSON."""
+    from firewall_sim.storage.json_store import load_project, save_project
+    from firewall_sim.ui.state import get_state, init_session_state, new_workspace
+
+    init_session_state()
+    state = get_state()
+
+    json_text = save_project(state)
+    assert "schema_version" in json_text
+    assert "devices" in json_text
+
+    imported_state, errors = load_project(json_text)
+    assert not errors
+    assert imported_state == state
+
+    new_workspace()
+    init_session_state()
+    assert get_state().config_revision >= 1

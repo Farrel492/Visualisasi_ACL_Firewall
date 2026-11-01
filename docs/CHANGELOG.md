@@ -4,7 +4,35 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ## [Unreleased]
 
+### 2026-11-01: Fase 1 - Perbaikan Bug Nyata, Dialog Konfirmasi, dan Manajemen Proyek
+- **Added:**
+  - B3: Dialog konfirmasi modal (`st.dialog`) untuk aksi destruktif: "Hapus riwayat uji" (`packet_sim.py`), "Kosongkan log" (`traffic_logs.py`), "Kosongkan peringatan" (`alerts.py`), dan "Bersihkan layar" (`cli_console.py`), memanfaatkan helper fungsi `clear_*` di `ui/state.py`.
+  - B5: Manajemen proyek di Dasbor (`overview.py`) meliputi tombol "Proyek baru" (dialog konfirmasi modal memanggil `new_workspace()`), tombol "Ekspor proyek (JSON)", dan expander "Impor proyek".
+  - Tes unit penerimaan baru: `test_T11_page_navigation_does_not_mutate_project_state` (pengganti T11), `test_B1_learning_lab_scenario_load`, `test_B3_clear_state_functions_isolation`, `test_B5_workspace_new_and_project_export_import` di `tests/test_acceptance.py`, serta `test_all_quick_commands_in_cli_console_are_valid` di `tests/test_cli_parser.py`.
+- **Changed:**
+  - B1: Tombol "Muat ke Workspace" di `learning_lab.py` kini memuat skenario, memindahkan halaman navigasi ke `network`, dan menampilkan notifikasi toast.
+  - B2: Sintaks perintah `test` pada chip cepat dan panduan `cli_console.py` diperbaiki dari format lama `source=...` menjadi urutan parameter valid `test <src> <dst> <proto> [port]` yang 100% cocok dengan parser CLI.
+  - B6: Dokumentasi README.md dan FAQ di `docs/USER_GUIDE.md` diperbarui dengan peringatan tegas menonaktifkan Chrome/Edge Translate untuk alamat localhost guna mencegah distorsi kata kunci dan error runtime DOM `removeChild`.
+  - `docs/UI_AUDIT.md`: Diperbarui dengan hasil audit fungsionalitas dan formulir Fase 1 pada seluruh halaman.
+- **Impacted modules:** `ui/pages/learning_lab.py`, `ui/pages/cli_console.py`, `ui/pages/packet_sim.py`, `ui/pages/traffic_logs.py`, `ui/pages/alerts.py`, `ui/pages/overview.py`, `README.md`, `docs/USER_GUIDE.md`, `docs/UI_AUDIT.md`, `tests/test_cli_parser.py`, `tests/test_acceptance.py`.
+- **Tests performed:** 67 passed in 3.55s pada gerbang tes non-UI (`pytest -q --ignore=tests/test_ui.py --ignore=tests/test_benchmark.py --ignore=tests/test_workspace.py`).
+- **Next steps:** Fase 2 - Penyesuaian tampilan halaman sesuai brief visual meja lab jaringan (2D/3D embed, listing mono, mini-topologi).
+
 ## [Unreleased]
+
+### 2026-11-01: Fase 1 - Perbaikan Bug Nyata, Dialog Konfirmasi, dan Manajemen Proyek
+- **Added:**
+  - B3: Dialog konfirmasi modal (`st.dialog`) untuk aksi destruktif: "Hapus riwayat uji" (`packet_sim.py`), "Kosongkan log" (`traffic_logs.py`), "Kosongkan peringatan" (`alerts.py`), dan "Bersihkan layar" (`cli_console.py`), memanfaatkan helper fungsi `clear_*` di `ui/state.py`.
+  - B5: Manajemen proyek di Dasbor (`overview.py`) meliputi tombol "Proyek baru" (dialog konfirmasi modal memanggil `new_workspace()`), tombol "Ekspor proyek (JSON)", dan expander "Impor proyek".
+  - Tes unit penerimaan baru: `test_T11_page_navigation_does_not_mutate_project_state` (pengganti T11), `test_B1_learning_lab_scenario_load`, `test_B3_clear_state_functions_isolation`, `test_B5_workspace_new_and_project_export_import` di `tests/test_acceptance.py`, serta `test_all_quick_commands_in_cli_console_are_valid` di `tests/test_cli_parser.py`.
+- **Changed:**
+  - B1: Tombol "Muat ke Workspace" di `learning_lab.py` kini memuat skenario, memindahkan halaman navigasi ke `network`, dan menampilkan notifikasi toast.
+  - B2: Sintaks perintah `test` pada chip cepat dan panduan `cli_console.py` diperbaiki dari format lama `source=...` menjadi urutan parameter valid `test <src> <dst> <proto> [port]` yang 100% cocok dengan parser CLI.
+  - B6: Dokumentasi README.md dan FAQ di `docs/USER_GUIDE.md` diperbarui dengan peringatan tegas menonaktifkan Chrome/Edge Translate untuk alamat localhost guna mencegah distorsi kata kunci dan error runtime DOM `removeChild`.
+  - `docs/UI_AUDIT.md`: Diperbarui dengan hasil audit fungsionalitas dan formulir Fase 1 pada seluruh halaman.
+- **Impacted modules:** `ui/pages/learning_lab.py`, `ui/pages/cli_console.py`, `ui/pages/packet_sim.py`, `ui/pages/traffic_logs.py`, `ui/pages/alerts.py`, `ui/pages/overview.py`, `README.md`, `docs/USER_GUIDE.md`, `docs/UI_AUDIT.md`, `tests/test_cli_parser.py`, `tests/test_acceptance.py`.
+- **Tests performed:** 67 passed in 3.55s pada gerbang tes non-UI (`pytest -q --ignore=tests/test_ui.py --ignore=tests/test_benchmark.py --ignore=tests/test_workspace.py`).
+- **Next steps:** Fase 2 - Penyesuaian tampilan halaman sesuai brief visual meja lab jaringan (2D/3D embed, listing mono, mini-topologi).
 
 ### 2026-10-31: Perubahan Arah - Fondasi Meja Lab, Penghapusan Mode Antarmuka, dan Alur Mulai di Sini
 - **Added:**

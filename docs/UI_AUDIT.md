@@ -64,3 +64,23 @@ Setiap elemen interaktif diuji status fungsinya (berfungsi nyata vs dekoratif).
   - Kartu hasil simulasi paket di `packet_sim.py` secara otomatis menampilkan banner peringatan jika `item.config_revision != state.config_revision`.
   - Log analitik di `traffic_logs.py` menyimpan `config_revision` pada setiap entri untuk audit forensik.
   - Sesi 3D Replay mendeteksi perubahan topologi dan memperbarui posisi koordinat spasial.
+
+
+---
+
+## 4. Hasil Audit & Perbaikan Fase 1 (Bug Nyata & Interaktivitas Penuh)
+
+Audit menyeluruh terhadap tombol dan formulir di seluruh 11 halaman setelah fondasi meja lab jaringan dipasang:
+
+| Halaman | Komponen / Widget | Efek yang Diharapkan | Efek Aktual Setelah Perbaikan | Status |
+|---|---|---|---|---|
+| **Lab Belajar** | Tombol `Muat ke Workspace` | Memuat state skenario, pindah ke halaman topologi (`network`), dan menampilkan toast konfirmasi. | State skenario terpasang, navigasi otomatis berpindah ke `network`, toast berhasil dimunculkan. | **Diperbaiki (B1)** |
+| **Konsol CLI** | Chip perintah `test` & Referensi Sintaks | Menjalankan simulasi paket virtual dengan parameter valid tanpa parsing error. | Sintaks diperbarui dari `source=...` menjadi `test <src> <dst> <proto> [port]` (mis. `test pc_a server tcp 80`); 100% chip valid dieksekusi parser. | **Diperbaiki (B2)** |
+| **Simulasi Paket** | Tombol `Hapus riwayat uji` | Menghapus riwayat hasil uji simulasi paket dengan dialog konfirmasi modal (`st.dialog`). | Dialog modal konfirmasi muncul; saat disetujui, memanggil `clear_test_history()` tanpa menyentuh log/alert. | **Ditambahkan (B3)** |
+| **Log Trafik** | Tombol `Kosongkan log` | Mengosongkan seluruh riwayat log trafik dengan dialog konfirmasi modal (`st.dialog`). | Dialog modal konfirmasi muncul; saat disetujui, memanggil `clear_traffic_logs()`. | **Ditambahkan (B3)** |
+| **Pusat Peringatan** | Tombol `Kosongkan peringatan` | Mengosongkan daftar event peringatan keamanan dengan dialog konfirmasi modal (`st.dialog`). | Dialog modal konfirmasi muncul; saat disetujui, memanggil `clear_security_events()`. | **Ditambahkan (B3)** |
+| **Konsol CLI** | Tombol `Bersihkan layar` | Menghapus riwayat input/output terminal pada layar dengan dialog konfirmasi modal (`st.dialog`). | Dialog modal konfirmasi muncul; saat disetujui, memanggil `clear_cli_history()`. | **Ditambahkan (B3)** |
+| **Dasbor** | Tombol `Proyek baru` | Membuat workspace baru dengan token unik via `new_workspace()` setelah konfirmasi dialog modal. | Dialog modal konfirmasi muncul; saat disetujui, token baru dibuat dan state diinisialisasi bersih. | **Ditambahkan (B5)** |
+| **Dasbor** | Tombol `Ekspor proyek (JSON)` | Mengunduh berkas konfigurasi proyek JSON yang valid sesuai skema. | Berkas JSON berhasil diunduh dengan penamaan `firewall_project_rev<rev>.json`. | **Disesuaikan (B5)** |
+| **Dasbor** | Expander `Impor proyek` | Membaca dan memvalidasi berkas JSON proyek, lalu menerapkannya ke session state. | Berkas divalidasi skema dan integritasnya; bila valid, state dimuat dan halaman diperbarui. | **Disesuaikan (B5)** |
+| **Mulai di Sini** | Tombol `Langkah berikutnya` | Menghitung rekomendasi tindakan tunggal secara cerdas berdasarkan state aktual. | 5 kondisi dinamis (0 dev, 0 rule, 0 test, has DROP, all ACCEPT) mengarahkan pengguna ke aksi relevan. | **Diperbaiki (B1/B3)** |

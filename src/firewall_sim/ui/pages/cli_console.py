@@ -12,7 +12,7 @@ from firewall_sim.ui.components import (
     render_simulation_banner,
 )
 from firewall_sim.ui.state import (
-    clear_simulation_data,
+    clear_cli_history,
     get_cli_history,
     get_state,
     init_session_state,
@@ -111,9 +111,23 @@ _QUICK_CMDS: list[tuple[str, str]] = [
     ("show running-config", ":material/settings:"),
     ("show interfaces", ":material/hub:"),
     ("show rules", ":material/shield:"),
-    ("test source=pc_a destination=server proto=tcp dport=80", ":material/send:"),
-    ("test source=pc_b destination=server proto=tcp dport=22", ":material/send:"),
+    ("test pc_a server tcp 80", ":material/send:"),
+    ("test pc_b server tcp 22", ":material/send:"),
 ]
+
+
+@st.dialog("Bersihkan Layar Terminal")
+def _dialog_clear_cli():
+    st.write("Semua riwayat perintah dan output pada layar terminal CLI akan dihapus.")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Ya, bersihkan", type="primary", key="btn_confirm_clear_cli", use_container_width=True):
+            clear_cli_history()
+            st.toast("Layar terminal CLI berhasil dibersihkan.")
+            st.rerun()
+    with c2:
+        if st.button("Batal", key="btn_cancel_clear_cli", use_container_width=True):
+            st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -146,11 +160,11 @@ def render_cli_console_page() -> None:
             cli_input = st.text_input(
                 f"{_HOSTNAME}>",
                 value=prefill_cmd,
-                placeholder="Contoh: show rules  |  test source=pc_a destination=server proto=tcp dport=80",
+                placeholder="Contoh: show rules  |  test pc_a server tcp 80",
                 key="cli_cmd_input",
                 label_visibility="visible",
             )
-            c_sub1, c_sub2, c_sub3 = st.columns([1.2, 1.2, 3])
+            c_sub1, c_sub2, c_sub3 = st.columns([1.2, 1.4, 2.8])
             with c_sub1:
                 submitted = st.form_submit_button(
                     "Kirim",
@@ -160,7 +174,7 @@ def render_cli_console_page() -> None:
                 )
             with c_sub2:
                 clear_btn = st.form_submit_button(
-                    "Bersihkan",
+                    "Bersihkan layar",
                     icon=":material/clear_all:",
                     use_container_width=True,
                 )
@@ -172,10 +186,8 @@ def render_cli_console_page() -> None:
                     set_state_from_cli(new_state)
                 st.rerun()
 
-            if clear_btn:
-                # Hanya bersihkan log CLI, bukan simulation data
-                st.session_state["fw_sim_cli_log"] = []
-                st.rerun()
+        if clear_btn:
+            _dialog_clear_cli()
 
     with col_side:
         # Chip Perintah Cepat
@@ -203,7 +215,7 @@ def render_cli_console_page() -> None:
                 "| `show rules` | Daftar aturan firewall |\n"
                 "| `rule add chain=forward proto=tcp dport=80 action=accept` | Tambah rule |\n"
                 "| `policy forward drop` | Ubah default policy |\n"
-                "| `test source=<id> destination=<ip> proto=tcp dport=80` | Simulasi paket |\n"
+                "| `test <src> <dst> <proto> [port]` | Simulasi paket (mis. `test pc_a server tcp 80`) |\n"
                 "| `interface eth0 ip 10.0.0.1/24` | Atur IP interface |\n"
                 "| `gateway 192.168.1.1` | Atur gateway host |"
             )

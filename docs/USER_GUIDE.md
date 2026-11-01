@@ -88,3 +88,8 @@ PC A dan PC B berada pada subnet yang sama (`192.168.1.0/24`) dan terhubung mela
 
 ### Apakah status ACCEPT menjamin server web dapat diakses secara nyata?
 Tidak. Seluruh aktivitas dalam aplikasi adalah **SIMULASI VIRTUAL**. Status ACCEPT hanya membuktikan bahwa paket lolos aturan filter firewall; aplikasi tidak membuka soket jaringan fisik ke perangkat keras produksi.
+
+
+### Mengapa label tombol atau teks CLI berubah aneh (misal "membantu", "pember") dan muncul error `removeChild`?
+Hal ini disebabkan oleh fitur **Google Chrome / Microsoft Edge Translate** yang aktif secara otomatis pada peramban. Penerjemah peramban mencoba menerjemahkan kata kunci teknis jaringan (seperti `help` menjadi "membantu" atau `permit` menjadi "pember"), sekaligus merusak struktur internal DOM React milik Streamlit sehingga memicu galat `NotFoundError: Failed to execute 'removeChild' on 'Node'`.
+**Solusi**: Klik ikon terjemahan pada bilah alamat peramban (address bar) dan pilih *"Jangan pernah terjemahkan situs ini"* (Never translate this site) untuk `localhost:8501` atau `localhost:8599`.

@@ -48,12 +48,12 @@ Dipin di `requirements.txt` (terinstal di Python 3.13 Windows):
 - Config Service Lengkap: mutasi aman satu pintu, Add/Remove Device & Link, Rename Device, penomoran revisi atomik, audit trail.
 - Preset Skenario & Learning Lab: 4 guided preset skenario dengan metadata lengkap, tombol pemuatan skenario, dan verifikasi target uji.
 - Replay 3D Interaktif: Plotly Scatter3d dengan kontrol langkah demi langkah (slider & prev-next) tahan rerun; paket DROP berhenti di router.
-- Mode Pembelajaran: Dihapus dan disatukan menjadi tampilan seragam meja lab dengan expander/popover ringkas bagi semua pengguna.
+- Mode Pembelajaran: Fitur Mode dihentikan atas keputusan produk (disatukan menjadi meja lab dengan expander/popover ringkas bagi semua pengguna), dan tes acceptance T11 diganti dengan verifikasi navigasi halaman tidak memutasi ProjectState (PRD tidak diubah).
 - JSON Storage & Persistence: Serialisasi dan deserialisasi proyek lengkap dengan verifikasi skema dan validasi topologi.
 - Antarmuka UI Streamlit Lengkap: 11 modul navigasi terintegrasi dengan router nav_page tunggal, sidebar 4 grup, Network 2D berlapis, Device Config inline valid, dan Firewall Rules terurut.
 
 ## Known bugs
-Belum ada.
+Fase 1 bug P0 (B1-B6) telah diperbaiki: alur Lab Belajar 'Muat ke Workspace' otomatis pindah ke network, sintaks chip CLI disesuaikan ke format parser, tombol clear dilengkapi st.dialog, dan manajemen proyek (baru/ekspor/impor) terpasang di dasbor.
 
 ## Current schema
 Sesuai PRD Bagian 9 dan diimplementasikan di `core/models.py`:

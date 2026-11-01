@@ -22,6 +22,7 @@ from firewall_sim.ui.components import (
 )
 from firewall_sim.ui.state import (
     add_simulation_run,
+    clear_test_history,
     get_simulation_history,
     get_state,
 )
@@ -168,7 +169,13 @@ def render_packet_sim_page() -> None:
                     st.rerun()
 
         # Riwayat dan Kartu Hasil Evaluasi
-        st.markdown("#### :material/history: Riwayat Hasil Evaluasi Simulasi")
+        col_hist_title, col_hist_act = st.columns([3, 1.4])
+        with col_hist_title:
+            st.markdown("#### :material/history: Riwayat Hasil Evaluasi Simulasi")
+        with col_hist_act:
+            if history:
+                if st.button("Hapus riwayat uji", icon=":material/delete:", key="btn_clear_test_history", use_container_width=True):
+                    _dialog_clear_test_history()
         if not history:
             empty_state(
                 message="Belum ada pengujian simulasi paket yang dijalankan. Klik salah satu tombol 'Uji Cepat' di atas untuk memulai.",

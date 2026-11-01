@@ -23,7 +23,7 @@ Seluruh skenario pengujian penerimaan (*acceptance test*) diimplementasikan pada
 | **T08** | `test_T08_unroutable_packet_returns_no_route` | Paket dengan rute/gateway terputus menghasilkan keputusan `NO_ROUTE`, bukan `DROP` palsu. | **PASSED** |
 | **T09** | `test_T09_invalid_ip_prefix_rejected_state_preserved` | Masukan format IPv4/CIDR tidak valid ditolak dengan pesan error; state konfigurasi tidak rusak. | **PASSED** |
 | **T10** | `test_T10_drop_packet_stops_at_firewall_in_3d_replay` | Paket yang diputuskan DROP berhenti tepat di router firewall pada penelusuran spasial 3D. | **PASSED** |
-| **T11** | `test_T11_ui_mode_toggle_preserves_project_state` | Pergantian mode Learning ke Professional murni di session state tanpa menyentuh ProjectState. | **PASSED** |
+| **T11** | `test_T11_page_navigation_does_not_mutate_project_state` | Navigasi halaman tidak memutasi ProjectState; mutasi hanya sah lewat `apply_command`. *(Catatan: Fitur Mode Belajar/Profesional dihentikan atas keputusan produk dan T11 diganti; PRD tidak diubah).* | **PASSED** |
 | **T12** | `test_T12_normal_drop_event_is_not_labeled_attack` | Event penolakan paket (DROP) tidak otomatis dilabeli sebagai serangan atau ancaman siber (*attack*). | **PASSED** |
 | **T13** | `test_T13_historical_results_preserve_config_revision` | Hasil pengujian masa lalu tetap mengabadikan `config_revision` saat pengujian tersebut dibuat. | **PASSED** |
 | **T14** | `test_T14_unknown_cli_command_safe_error_no_subprocess` | Perintah CLI asing atau masukan berbahaya menghasilkan pesan error aman tanpa eksekusi shell OS. | **PASSED** |

@@ -12,8 +12,24 @@ from firewall_sim.ui.components import (
 )
 from firewall_sim.ui.state import (
     KEY_ALERT_HIGHLIGHT,
+    clear_security_events,
     get_security_events,
 )
+
+
+
+@st.dialog("Kosongkan Peringatan")
+def _dialog_clear_alerts():
+    st.write("Semua catatan peringatan keamanan akan dihapus permanen dari memori sesi.")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Ya, kosongkan", type="primary", key="btn_confirm_clear_alerts", use_container_width=True):
+            clear_security_events()
+            st.toast("Daftar peringatan berhasil dikosongkan.")
+            st.rerun()
+    with c2:
+        if st.button("Batal", key="btn_cancel_clear_alerts", use_container_width=True):
+            st.rerun()
 
 
 def render_alerts_page() -> None:
@@ -49,7 +65,13 @@ def render_alerts_page() -> None:
                 st.rerun()
 
         # Daftar Peringatan
-        st.markdown(f"#### :material/notifications: Daftar Event Peringatan ({len(events)} tercatat)")
+        col_alt_t, col_alt_act = st.columns([3, 1.4])
+        with col_alt_t:
+            st.markdown(f"#### :material/notifications: Daftar Event Peringatan ({len(events)} tercatat)")
+        with col_alt_act:
+            if events:
+                if st.button("Kosongkan peringatan", icon=":material/delete:", key="btn_clear_alerts", use_container_width=True):
+                    _dialog_clear_alerts()
 
         if not events:
             empty_state(
