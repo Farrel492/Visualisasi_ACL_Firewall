@@ -38,26 +38,27 @@ def render_start_here_page() -> None:
     has_tests = len(sim_history) > 0
     has_drop = any(r.decision == Decision.DROP for r in sim_history)
 
-    if not has_devices:
+    # Aplikasi selalu dimulai dengan topologi bawaan (perangkat sudah ada, rule belum),
+    # jadi kondisi awal ditentukan oleh rule dan hasil uji, bukan oleh jumlah perangkat.
+    if not has_rules and not has_tests:
         btn_label = "Muat demo siap pakai"
         btn_target = "load_demo"
-        next_hint = "Belum ada perangkat dalam topologi. Muat skenario demo untuk memulai pengujian."
-    elif not has_rules:
-        btn_label = "Tambah aturan firewall"
-        btn_target = "firewall_rules"
-        next_hint = "Perangkat telah terhubung tetapi belum memiliki aturan filter firewall."
+        next_hint = (
+            "Topologi bawaan sudah ada. Muat demo untuk mendapat dua aturan dan dua hasil uji contoh, "
+            "atau susun aturan sendiri."
+        )
     elif not has_tests:
         btn_label = "Jalankan uji paket"
         btn_target = "packet_sim"
-        next_hint = "Aturan firewall telah dikonfigurasi. Uji traversal paket virtual."
+        next_hint = "Aturan firewall sudah ada. Uji bagaimana paket diperlakukan."
     elif has_drop:
         btn_label = "Coba matikan aturan DROP lalu uji ulang"
         btn_target = "firewall_rules"
-        next_hint = "Pengujian menghasilkan paket DROP. Tinjau aturan penolakan firewall."
+        next_hint = "Ada paket yang ditolak (DROP). Matikan aturannya, lalu uji ulang dan bandingkan hasilnya."
     else:
         btn_label = "Lihat jalur paket di 3D"
         btn_target = "viz3d"
-        next_hint = "Paket berhasil lolos. Amati animasi jalur paket di panggung 3D."
+        next_hint = "Paket berhasil lolos. Amati jalurnya di panggung 3D."
 
     with st.container(border=True):
         st.markdown("#### Langkah berikutnya")
@@ -72,6 +73,10 @@ def render_start_here_page() -> None:
                     st.error(f"Gagal memuat demo: {errs}")
             else:
                 set_nav_page(btn_target)
+                st.rerun()
+        if btn_target == "load_demo":
+            if st.button("Atur aturan sendiri", key="btn_manual_rules", width="stretch"):
+                set_nav_page("firewall_rules")
                 st.rerun()
 
     # 5 Langkah sebagai baris teks berstatus

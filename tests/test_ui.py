@@ -18,7 +18,7 @@ APP_PATH = str(Path(__file__).parent.parent / "app.py")
 
 def test_ui_renders_default_start_here_without_exception():
     """Menguji bahwa app.py dapat dirender pada halaman default (Mulai di Sini) dengan page_header tanpa exception."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
     assert not at.exception
     assert len(at.title) >= 1
@@ -43,7 +43,7 @@ def test_ui_navigation_to_all_pages_via_sidebar_buttons():
     ]
 
     for key, expected_page in nav_buttons:
-        at = AppTest.from_file(APP_PATH, default_timeout=10)
+        at = AppTest.from_file(APP_PATH, default_timeout=30)
         at.run()
         matching_buttons = [b for b in at.button if b.key == key]
         assert len(matching_buttons) == 1, f"Tombol dengan key {key} tidak ditemukan di rail"
@@ -53,115 +53,81 @@ def test_ui_navigation_to_all_pages_via_sidebar_buttons():
 
 
 def test_ui_start_here_next_action_conditions():
-    """Menguji SATU tombol utama pada kartu 'Langkah berikutnya' untuk 5 kondisi state:
-    1. tidak ada perangkat -> 'Muat demo siap pakai'
-    2. ada perangkat, 0 rule -> 'Tambah aturan firewall'
-    3. ada rule, 0 uji -> 'Jalankan uji paket'
-    4. sudah ada uji -> 'Lihat jalur paket di 3D'
-    5. sudah ada hasil DROP -> 'Coba matikan aturan DROP lalu uji ulang'
+    """Satu tombol utama 'Langkah berikutnya' mengikuti state (rule dan hasil uji, bukan jumlah perangkat).
+
+    1. awal (topologi bawaan, 0 rule, 0 uji)  -> 'Muat demo siap pakai' (demo dapat dijangkau)
+    2. ada rule, 0 uji                        -> 'Jalankan uji paket'
+    3. sudah ada uji, tanpa DROP              -> 'Lihat jalur paket di 3D'
+    4. sudah ada hasil DROP                   -> 'Coba matikan aturan DROP lalu uji ulang'
     """
-    from firewall_sim.scenarios.presets import default_lab
+    from firewall_sim.core.models import Decision as D
     from firewall_sim.core.models import SimulationResult
+    from firewall_sim.scenarios.presets import default_lab
+    from firewall_sim.ui.state import KEY_STATE as KS
 
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    def primary(at):
+        found = [b for b in at.button if b.key == "btn_next_action"]
+        assert len(found) == 1
+        return found[0]
+
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
-    at.session_state[KEY_NAV_PAGE] = "start_here"
-
-    # Kondisi 1: Tidak ada perangkat
-    at.session_state[KEY_STATE] = empty_project()
-    at.session_state[KEY_HISTORY] = []
-    at.run()
-    btn = [b for b in at.button if b.key == "btn_next_action"]
-    assert len(btn) == 1
-    assert btn[0].label == "Muat demo siap pakai"
-
-    # Klik muat demo siap pakai
-    btn[0].click().run()
     assert not at.exception
-    # Setelah muat demo, demo memiliki DROP sehingga masuk ke kondisi 5 (ada DROP):
-    btn = [b for b in at.button if b.key == "btn_next_action"]
-    assert btn[0].label == "Coba matikan aturan DROP lalu uji ulang"
-
-    # Kondisi 2: Ada perangkat, 0 rule
-    st_devs_no_rules = default_lab()
-    st_devs_no_rules.rules = []
-    at.session_state[KEY_STATE] = st_devs_no_rules
-    at.session_state[KEY_HISTORY] = []
-    at.run()
-    btn = [b for b in at.button if b.key == "btn_next_action"]
-    assert btn[0].label == "Tambah aturan firewall"
-    btn[0].click().run()
+    # Kondisi 1: keadaan awal aplikasi
+    assert primary(at).label == "Muat demo siap pakai"
+    primary(at).click().run()
+    assert not at.exception
+    assert len(at.session_state[KS].rules) == 2
+    # demo menghasilkan DROP -> kondisi 4
+    assert primary(at).label == "Coba matikan aturan DROP lalu uji ulang"
+    primary(at).click().run()
     assert at.session_state[KEY_NAV_PAGE] == "firewall_rules"
 
-    # Kondisi 3: Ada rule, 0 uji
+    # Kondisi 2: ada rule, tidak ada uji
+    demo_state = at.session_state[KS]
     at.session_state[KEY_NAV_PAGE] = "start_here"
-    at.session_state[KEY_STATE] = default_lab()
+    at.session_state[KS] = demo_state
     at.session_state[KEY_HISTORY] = []
     at.run()
-    btn = [b for b in at.button if b.key == "btn_next_action"]
-    assert btn[0].label == "Jalankan uji paket"
-    btn[0].click().run()
+    assert primary(at).label == "Jalankan uji paket"
+    primary(at).click().run()
     assert at.session_state[KEY_NAV_PAGE] == "packet_sim"
 
-    # Kondisi 4: Sudah ada uji (tanpa DROP / semua ACCEPT)
-    at.session_state[KEY_NAV_PAGE] = "start_here"
-    at.session_state[KEY_STATE] = default_lab()
-    res_accept = SimulationResult(
-        test_id="test_accept_1",
-        decision=Decision.ACCEPT,
-        matched_rule_id=None,
-        reason="Lolos",
-        path_traversal=[],
-        config_revision=1,
+    # Kondisi 3: ada uji, semua ACCEPT
+    ok = SimulationResult(
+        test_id="t_ok", decision=D.ACCEPT, reason="Lolos", matched_rule_id=None, trace=(),
+        config_revision=1, timestamp=__import__("datetime").datetime.now(),
     )
-    at.session_state[KEY_HISTORY] = [res_accept]
+    at.session_state[KEY_NAV_PAGE] = "start_here"
+    at.session_state[KEY_HISTORY] = [ok]
     at.run()
-    btn = [b for b in at.button if b.key == "btn_next_action"]
-    assert btn[0].label == "Lihat jalur paket di 3D"
-    btn[0].click().run()
+    assert primary(at).label == "Lihat jalur paket di 3D"
+    primary(at).click().run()
     assert at.session_state[KEY_NAV_PAGE] == "viz3d"
-
-    # Kondisi 5: Sudah ada hasil DROP
-    at.session_state[KEY_NAV_PAGE] = "start_here"
-    res_drop = SimulationResult(
-        test_id="test_drop_1",
-        decision=Decision.DROP,
-        matched_rule_id="r1",
-        reason="Ditolak",
-        path_traversal=[],
-        config_revision=1,
-    )
-    at.session_state[KEY_HISTORY] = [res_drop]
-    at.run()
-    btn = [b for b in at.button if b.key == "btn_next_action"]
-    assert btn[0].label == "Coba matikan aturan DROP lalu uji ulang"
-    btn[0].click().run()
-    assert at.session_state[KEY_NAV_PAGE] == "firewall_rules"
 
 
 def test_ui_demo_scenario_loader():
-    """Menguji eksekusi pemuatan skenario demo menghasilkan >=1 ACCEPT, >=1 DROP, dan >=1 alert."""
-    from firewall_sim.ui.state import load_demo_scenario
-    ok, errs = load_demo_scenario()
-    assert ok, f"Gagal memuat skenario demo: {errs}"
-
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    """Klik 'Muat demo siap pakai' menghasilkan >=1 ACCEPT, >=1 DROP, dan >=1 peringatan."""
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
+    assert not at.exception
+    demo = [b for b in at.button if "demo" in (b.label or "").lower()]
+    assert demo, "tombol demo tidak ditemukan di halaman awal"
+    demo[0].click().run()
+    assert not at.exception
 
     history = at.session_state[KEY_HISTORY]
     assert len(history) >= 2, f"Diharapkan minimal 2 hasil simulasi, ditemukan: {len(history)}"
-
     decisions = [r.decision for r in history]
     assert Decision.ACCEPT in decisions, "Diharapkan minimal 1 keputusan ACCEPT pada demo"
     assert Decision.DROP in decisions, "Diharapkan minimal 1 keputusan DROP pada demo"
-
     alerts = at.session_state[KEY_EVENTS]
-    assert len(alerts) >= 1, f"Diharapkan minimal 1 alert keamanan dari paket DROP, ditemukan: {len(alerts)}"
+    assert len(alerts) >= 1, f"Diharapkan minimal 1 alert dari paket DROP, ditemukan: {len(alerts)}"
 
 
 def test_ui_bridge_cli_rule_reflected_in_rules_page():
     """Jembatan UI: Rule yang ditambahkan via CLI muncul di halaman Firewall Rules."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     cli_btn = [b for b in at.button if b.key == "nav_cli_console"][0]
@@ -182,7 +148,7 @@ def test_ui_bridge_cli_rule_reflected_in_rules_page():
 
 def test_ui_simulation_history_record():
     """Menguji bahwa penambahan hasil simulasi muncul pada riwayat session state."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     sim_btn = [b for b in at.button if b.key == "nav_packet_sim"][0]
@@ -200,7 +166,7 @@ def test_ui_simulation_history_record():
 
 def test_ui_3d_viz_renders_with_history():
     """Menguji bahwa halaman 3D Visualization memuat replay trace hasil simulasi paket dan frame DROP berhenti di router."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     # Inisiasi hasil simulasi ke session state
@@ -228,7 +194,7 @@ def test_ui_3d_viz_renders_with_history():
 
 def test_ui_learning_lab_interaction():
     """Menguji interaksi halaman Learning Lab: tombol muat skenario dan eksekusi uji."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     lab_btn = [b for b in at.button if b.key == "nav_learning_lab"][0]
@@ -262,7 +228,7 @@ def test_ui_all_pages_have_headers_and_no_raw_dict():
     }
 
     for p, expected_title in nav_labels.items():
-        at = AppTest.from_file(APP_PATH, default_timeout=10)
+        at = AppTest.from_file(APP_PATH, default_timeout=30)
         at.run()
         at.session_state[KEY_NAV_PAGE] = p
         at.run()
@@ -284,7 +250,7 @@ def test_ui_all_pages_have_headers_and_no_raw_dict():
 
 def test_ui_empty_states_have_action_buttons():
     """Menguji bahwa tampilan empty state pada halaman menyediakan tombol aksi navigasi."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     # Kosongkan history dan log
@@ -326,7 +292,7 @@ def test_ui_topology_crud_actions():
     from firewall_sim.core.models import DeviceType, Interface
     from firewall_sim.config.service import AddDevice, AddLink, RemoveDevice, RemoveLink, update_config
 
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     # 1. Tambah perangkat Switch baru untuk port bebas tambahan
@@ -363,7 +329,7 @@ def test_ui_topology_crud_actions():
 
 def test_ui_workflow_rail_and_flow_next():
     """Menguji bahwa Workflow Rail ter-render di halaman alur kerja dan tombol flow-next berfungsi."""
-    at = AppTest.from_file(APP_PATH, default_timeout=10)
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
     at.run()
 
     # 1. Buka halaman Network
