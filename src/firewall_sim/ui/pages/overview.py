@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from firewall_sim.core.analytics import summarize_traffic
+from firewall_sim.core.models import Decision
 from firewall_sim.core.validation import validate_topology
 from firewall_sim.storage.json_store import load_project, save_project
 from firewall_sim.ui.components import (
@@ -23,9 +24,38 @@ from firewall_sim.ui.state import (
     reset_to_preset,
     set_project_state,
 )
-from firewall_sim.ui.theme import get_decision_badge
+from firewall_sim.ui.theme import get_decision_badge, COLOR_ALLOW, COLOR_DENY, COLOR_MUTED
 
 
+# ── helper untuk keputusan ──────────────────────────────────────────────────
+
+_DECISION_LABEL: dict[Decision, str] = {
+    Decision.ACCEPT: "ACCEPT",
+    Decision.DROP: "DROP",
+    Decision.NO_ROUTE: "NO_ROUTE",
+    Decision.INVALID_CONFIG: "INVALID",
+    Decision.UNSUPPORTED_CASE: "UNSUPPORTED",
+}
+
+
+def _decision_color(decision: Decision) -> str:
+    if decision == Decision.ACCEPT:
+        return COLOR_ALLOW
+    if decision == Decision.DROP:
+        return COLOR_DENY
+    return COLOR_MUTED
+
+
+def _led_dot(decision: Decision) -> str:
+    """Buat lingkaran berwarna kecil sebagai LED indikator keputusan."""
+    color = _decision_color(decision)
+    return (
+        f'<span style="display:inline-block;width:10px;height:10px;' 
+        f'border-radius:50%;background:{color};margin-right:5px;vertical-align:middle;"></span>'
+    )
+
+
+# ── dialog ──────────────────────────────────────────────────────────────────
 
 @st.dialog("Mulai Proyek Baru")
 def _dialog_new_project():
@@ -41,6 +71,23 @@ def _dialog_new_project():
             st.rerun()
 
 
+# ── helpers status strip ─────────────────────────────────────────────────────
+
+def _compute_strip_data(state) -> dict:
+    """Hitung data untuk strip status satu baris."""
+    val_errors = validate_topology(state)
+    return {
+        "revision": state.config_revision,
+        "devices": len(state.devices),
+        "rules": len(state.rules),
+        "links": len(state.links),
+        "valid": len(val_errors) == 0,
+        "val_count": len(val_errors),
+    }
+
+
+# ── render utama ─────────────────────────────────────────────────────────────
+
 def render_overview_page() -> None:
     """Merender halaman ringkasan sistem, status topologi, dan persistensi proyek."""
     render_simulation_banner()
@@ -50,59 +97,104 @@ def render_overview_page() -> None:
     )
 
     state = get_state()
+    strip = _compute_strip_data(state)
     scenario_name = dict(state.scenario_metadata).get("name", "Custom Scenario")
 
-    # 4 KPI Utama Ringkasan Sistem
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Skenario Aktif", scenario_name, border=True)
-    k2.metric("Config Revision", f"Rev #{state.config_revision}", border=True)
-    k3.metric("Total Perangkat", f"{len(state.devices)} unit", border=True)
-    k4.metric("Keterhubungan & Rule", f"{len(state.links)} link / {len(state.rules)} rule", border=True)
+    # ── Strip Status ────────────────────────────────────────────────────────
+    val_color = COLOR_ALLOW if strip["valid"] else COLOR_DENY
+    val_text = "Valid" if strip["valid"] else f"{strip['val_count']} isu"
+    strip_html = (
+        '<div style="font-family:monospace;font-size:0.82rem;padding:8px 12px;' 
+        'background:#F4F5F6;border:1px solid #C2C9D0;border-radius:6px;' 
+        'display:flex;gap:24px;align-items:center;flex-wrap:wrap;">' 
+        f'<span><b>Revisi</b>&nbsp;#{strip["revision"]}</span>' 
+        f'<span><b>Perangkat</b>&nbsp;{strip["devices"]}</span>' 
+        f'<span><b>Rule</b>&nbsp;{strip["rules"]}</span>' 
+        f'<span><b>Link</b>&nbsp;{strip["links"]}</span>' 
+        f'<span><b>Validasi</b>&nbsp;<span style="color:{val_color};font-weight:600;">{val_text}</span></span>' 
+        f'<span style="color:#5E6A75">{scenario_name}</span>' 
+        '</div>'
+    )
+    st.html(strip_html)
 
     col_main, col_side = st.columns([2.2, 1.0])
 
     with col_main:
         # Validasi Topologi
         with st.container(border=True):
-            st.markdown("#### :material/verified_user: Status Validasi Topologi (MVP Rules)")
+            st.markdown("#### Status Validasi Topologi")
             val_errors = validate_topology(state)
             if val_errors:
                 st.error(f"Terdeteksi {len(val_errors)} isu validasi konfigurasi:", icon=":material/warning:")
                 for err in val_errors:
                     st.markdown(f"- **[{err.code}]** {err.message}")
             else:
-                st.success("Topologi valid: Memenuhi seluruh aturan integritas jaringan dan kriteria router tunggal MVP.", icon=":material/check_circle:")
+                st.success(
+                    "Topologi valid: Memenuhi seluruh aturan integritas jaringan dan kriteria router tunggal MVP.",
+                    icon=":material/check_circle:",
+                )
 
-        # Default Policy per Chain
+        # Default Policy per Chain — teks penuh, tidak terpotong
         with st.container(border=True):
-            st.markdown("#### :material/policy: Kebijakan Default Aktif")
+            st.markdown("#### Kebijakan Default per Chain")
             p_cols = st.columns(3)
             for idx, (chain, action) in enumerate(state.default_policies):
-                act_badge = "ACCEPT" if action.value.lower() == "accept" else "DROP"
+                act = action.value.upper()
+                color = COLOR_ALLOW if act == "ACCEPT" else COLOR_DENY
+                chain_label = chain.value.upper()
+                badge_html = (
+                    f'<div style="border:1px solid #C2C9D0;border-radius:6px;' 
+                    f'padding:10px 12px;background:#F4F5F6;">' 
+                    f'<div style="font-size:0.78rem;color:#5E6A75;margin-bottom:4px;">Chain {chain_label}</div>' 
+                    f'<div style="font-size:1rem;font-weight:700;color:{color};">{act}</div>' 
+                    f'</div>'
+                )
                 with p_cols[idx]:
-                    st.metric(f"Chain {chain.value.upper()}", act_badge, border=True)
+                    st.html(badge_html)
 
-        # Aktivitas Log & Alert Terakhir
+        # Tabel Uji Terbaru (5 entri terakhir)
         with st.container(border=True):
-            st.markdown("#### :material/query_stats: Aktivitas Uji Terakhir")
+            st.markdown("#### Uji Paket Terbaru")
             logs = get_traffic_logs()
             summary = summarize_traffic(logs)
 
-            m_c1, m_c2, m_c3, m_c4 = st.columns(4)
-            m_c1.metric("Total Uji", summary["total"], border=True)
-            m_c2.metric("Lolos", summary["ACCEPT"], border=True)
-            m_c3.metric("Ditolak", summary["DROP"], border=True)
-            m_c4.metric("No Route", summary["NO_ROUTE"], border=True)
+            # Baris ringkasan satu baris
+            total = summary["total"]
+            accepted = summary["ACCEPT"]
+            dropped = summary["DROP"]
+            no_route = summary["NO_ROUTE"]
+            st.caption(
+                f"Total: **{total}** uji  |  ACCEPT: **{accepted}**  |  DROP: **{dropped}**  |  NO_ROUTE: **{no_route}**"
+            )
 
             if logs:
-                st.caption(f"Uji terakhir: {get_decision_badge(logs[0].decision)} — {logs[0].source_device} -> {logs[0].destination_target}")
+                recent = logs[:5]
+                rows = []
+                for entry in recent:
+                    waktu = entry.timestamp.strftime("%H:%M:%S") if hasattr(entry.timestamp, "strftime") else str(entry.timestamp)
+                    keputusan = _DECISION_LABEL.get(entry.decision, str(entry.decision))
+                    rows.append({
+                        "Waktu": waktu,
+                        "Sumber": entry.source_device,
+                        "Tujuan": entry.destination_target,
+                        "Protokol": entry.protocol or "-",
+                        "Keputusan": keputusan,
+                    })
+                st.dataframe(
+                    rows,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Keputusan": st.column_config.TextColumn("Keputusan"),
+                    },
+                )
             else:
                 st.info("Belum ada pengujian simulasi paket yang dijalankan.")
 
         # Riwayat Audit Log Konfigurasi (5 terakhir)
         if state.audit_log:
             with st.container(border=True):
-                st.markdown("#### :material/history: 5 Revisi Konfigurasi Terakhir")
+                st.markdown("#### 5 Revisi Konfigurasi Terakhir")
                 recent_logs = list(reversed(state.audit_log[-5:]))
                 for entry in recent_logs:
                     stamp = entry.timestamp.strftime("%H:%M:%S")
@@ -111,7 +203,7 @@ def render_overview_page() -> None:
     with col_side:
         # Kontrol Manajemen Proyek (Proyek baru, Ekspor, Impor)
         with st.container(border=True):
-            st.markdown("#### :material/folder: Manajemen Proyek")
+            st.markdown("#### Manajemen Proyek")
 
             if st.button("Proyek baru", icon=":material/note_add:", use_container_width=True, key="btn_new_project"):
                 _dialog_new_project()
@@ -160,4 +252,3 @@ def render_overview_page() -> None:
         ])
 
     render_flow_next("network", "Topologi 2D", "Mulai meninjau atau menyusun perangkat jaringan.")
-

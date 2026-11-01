@@ -504,3 +504,72 @@ def test_B5_workspace_new_and_project_export_import():
     new_workspace()
     init_session_state()
     assert get_state().config_revision >= 1
+
+
+# ── Fase 2a: tes unit _compute_strip_data dan helper overview ────────────────
+
+def test_2a_compute_strip_data_default_lab():
+    """2a: _compute_strip_data menghitung perangkat, rule, link, dan status validasi dengan benar."""
+    from firewall_sim.ui.pages.overview import _compute_strip_data
+    from firewall_sim.scenarios.presets import default_lab
+
+    state = default_lab()
+    strip = _compute_strip_data(state)
+
+    assert strip["revision"] == state.config_revision
+    assert strip["devices"] == len(state.devices)
+    assert strip["rules"] == len(state.rules)
+    assert strip["links"] == len(state.links)
+    assert isinstance(strip["valid"], bool)
+    assert isinstance(strip["val_count"], int)
+
+
+def test_2a_compute_strip_data_valid_true_for_default_lab():
+    """2a: default_lab() lulus validasi sehingga valid == True dan val_count == 0."""
+    from firewall_sim.ui.pages.overview import _compute_strip_data
+    from firewall_sim.scenarios.presets import default_lab
+
+    state = default_lab()
+    strip = _compute_strip_data(state)
+
+    assert strip["valid"] is True
+    assert strip["val_count"] == 0
+
+
+def test_2a_decision_color_returns_correct_colors():
+    """2a: _decision_color mengembalikan warna berbeda untuk ACCEPT vs DROP."""
+    from firewall_sim.ui.pages.overview import _decision_color
+    from firewall_sim.core.models import Decision
+
+    accept_color = _decision_color(Decision.ACCEPT)
+    drop_color = _decision_color(Decision.DROP)
+    no_route_color = _decision_color(Decision.NO_ROUTE)
+
+    assert accept_color != drop_color
+    assert no_route_color != accept_color
+
+
+def test_2a_decision_label_mapping_complete():
+    """2a: _DECISION_LABEL mencakup semua 5 nilai Decision."""
+    from firewall_sim.ui.pages.overview import _DECISION_LABEL
+    from firewall_sim.core.models import Decision
+
+    for decision in Decision:
+        assert decision in _DECISION_LABEL, f"Decision {decision} tidak ada di _DECISION_LABEL"
+
+
+def test_2a_overview_module_importable():
+    """2a: overview.py dapat diimpor tanpa error Streamlit runtime."""
+    import importlib
+    import sys
+    # Pastikan modul tidak cached dari import sebelumnya dengan patch
+    mod_name = "firewall_sim.ui.pages.overview"
+    if mod_name in sys.modules:
+        del sys.modules[mod_name]
+    # Import harus berhasil; fungsi render memerlukan Streamlit runtime tapi
+    # _compute_strip_data dan helper tidak.
+    mod = importlib.import_module(mod_name)
+    assert hasattr(mod, "render_overview_page")
+    assert hasattr(mod, "_compute_strip_data")
+    assert hasattr(mod, "_decision_color")
+    assert hasattr(mod, "_DECISION_LABEL")

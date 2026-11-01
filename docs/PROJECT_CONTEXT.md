@@ -1,3 +1,5 @@
+**Status saat ini (2026-11-01):** Sub-tahap 2a selesai (`overview.py`: strip status, tabel uji terbaru, badge chain penuh, 5 tes baru). Menunggu pytest penuh dari pengguna sebelum 2b.
+
 # PROJECT_CONTEXT
 
 > Dokumen hidup. Agent wajib membaca file ini dan `docs/PRD.md` sebelum mengubah kode, dan memperbaruinya setelah setiap perubahan.
@@ -26,7 +28,7 @@ Yang sudah diimplementasikan:
   - `viz3d.py`: Perhitungan koordinat 3D deterministik dan pembangunan frame replay step-by-step (`build_replay_frames`).
   - `pages/`: `start_here.py`, `overview.py`, `network.py`, `viz3d_page.py`, `device_config.py`, `firewall_rules.py`, `packet_sim.py`, `traffic_logs.py`, `alerts.py`, `learning_lab.py`, `cli_console.py`.
 - `app.py`: Router tunggal berbasis `nav_page` dengan sidebar 4 grup (Mulai, Bangun & Konfigurasi, Simulasi & Visual, Analisis & Belajar), kartu ringkas metadata status, dan mode switcher Learning/Professional.
-- `tests/`: 75 unit, acceptance, benchmark, & UI tests di `test_acceptance.py` (T01-T14), `test_benchmark.py`, `test_engine.py`, `test_config_service.py`, `test_cli_parser.py`, `test_storage.py`, `test_analytics.py`, `test_scenarios.py`, `test_viz3d.py`, `test_smoke.py`, dan `test_ui.py` (100% passed).
+- `tests/`: 91+ unit, acceptance, benchmark, & UI tests di `test_acceptance.py` (T01-T14 + tes Fase 1 & 2a), `test_benchmark.py`, `test_engine.py`, `test_config_service.py`, `test_cli_parser.py`, `test_storage.py`, `test_analytics.py`, `test_scenarios.py`, `test_viz3d.py`, `test_smoke.py`, dan `test_ui.py`.
 
 Planned (belum diimplementasikan / Backlog P2):
 - Fitur P2 Security Alert Center: watchlist, trusted IP, ambang batas alarm berulang, auto-mitigation.
