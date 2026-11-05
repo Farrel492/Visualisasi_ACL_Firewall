@@ -38,6 +38,12 @@ _DECISION_LABEL: dict[Decision, str] = {
 }
 
 
+def _device_name(state, device_id: str) -> str:
+    """Nama perangkat untuk ditampilkan; bila tidak ditemukan, tampilkan teks aslinya (mis. alamat IP)."""
+    dev = state.get_device(device_id) if device_id else None
+    return dev.name if dev else (device_id or "-")
+
+
 def _decision_color(decision: Decision) -> str:
     if decision == Decision.ACCEPT:
         return COLOR_ALLOW
@@ -104,7 +110,7 @@ def render_overview_page() -> None:
     val_color = COLOR_ALLOW if strip["valid"] else COLOR_DENY
     val_text = "Valid" if strip["valid"] else f"{strip['val_count']} isu"
     strip_html = (
-        '<div style="font-family:monospace;font-size:0.82rem;padding:8px 12px;' 
+        '<div style="font-family:var(--fw-mono, \'IBM Plex Mono\', monospace);font-size:0.82rem;padding:8px 12px;' 
         'background:#F4F5F6;border:1px solid #C2C9D0;border-radius:6px;' 
         'display:flex;gap:24px;align-items:center;flex-wrap:wrap;">' 
         f'<span><b>Revisi</b>&nbsp;#{strip["revision"]}</span>' 
@@ -175,8 +181,8 @@ def render_overview_page() -> None:
                     keputusan = _DECISION_LABEL.get(entry.decision, str(entry.decision))
                     rows.append({
                         "Waktu": waktu,
-                        "Sumber": entry.source_device,
-                        "Tujuan": entry.destination_target,
+                        "Sumber": _device_name(state, entry.source_device),
+                        "Tujuan": _device_name(state, entry.destination_target),
                         "Protokol": entry.protocol or "-",
                         "Keputusan": keputusan,
                     })

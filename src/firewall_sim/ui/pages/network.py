@@ -190,11 +190,14 @@ def _inspector(state) -> None:
     selected = get_selected_device()
     if selected not in names:
         selected = state.devices[0].id
-    if st.session_state.get("sel_inspect_dev") != selected:
-        st.session_state["sel_inspect_dev"] = selected
-    dev_id = st.selectbox("Perangkat terpilih", list(names), format_func=names.get, key="sel_inspect_dev")
-    if dev_id != get_selected_device():
-        set_selected_device(dev_id)
+    st.session_state["sel_inspect_dev"] = selected  # sinkron dengan klik di topologi
+    dev_id = st.selectbox(
+        "Perangkat terpilih",
+        list(names),
+        format_func=names.get,
+        key="sel_inspect_dev",
+        on_change=lambda: set_selected_device(st.session_state.get("sel_inspect_dev")),
+    )
     dev = state.get_device(dev_id)
     cols = st.columns(3)
     cols[0].metric("Nama", dev.name)

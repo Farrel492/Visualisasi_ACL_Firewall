@@ -1,34 +1,44 @@
-"""Device Configuration UI page."""
+"""Konfigurasi Perangkat: IP interface, status port, dan default gateway, dengan topologi di sampingnya."""
 
 from __future__ import annotations
 
 import ipaddress
+
 import streamlit as st
 
-from firewall_sim.config.service import (
-    SetGateway,
-    SetInterfaceEnabled,
-    SetInterfaceIP,
-)
+from firewall_sim.config.service import SetGateway, SetInterfaceEnabled, SetInterfaceIP
 from firewall_sim.core.models import DeviceType
+from firewall_sim.ui import topo
 from firewall_sim.ui.components import (
     empty_state,
     next_steps,
     page_header,
     render_error_box,
+    render_flow_next,
     render_simulation_banner,
+    render_workflow_rail,
 )
-from firewall_sim.ui.state import apply_command, get_state
+from firewall_sim.ui.state import (
+    apply_command,
+    get_cables,
+    get_layout,
+    get_selected_device,
+    get_state,
+    set_selected_device,
+)
+from firewall_sim.ui.widgets import apply_component_event, topology_view
 
 
 def _validate_ipv4_cidr_inline(cidr_str: str) -> tuple[bool, str]:
     """Validasi format IPv4 CIDR secara inline dalam Bahasa Indonesia."""
     if not cidr_str or not cidr_str.strip():
-        return True, ""  # Boleh kosong jika port L2 atau dihapus
+        return True, ""  # kosong = hapus alamat
     try:
         network = ipaddress.IPv4Network(cidr_str.strip(), strict=False)
         if network.prefixlen == 0 or network.prefixlen > 32:
             return False, "Prefix subnet mask harus bernilai antara /1 hingga /32."
+        if "/" not in cidr_str:
+            return False, "Tambahkan prefix subnet, misalnya /24. Contoh: 192.168.1.10/24"
         return True, ""
     except ValueError:
         return False, "Format IPv4 CIDR tidak valid. Contoh yang benar: 192.168.1.10/24"
@@ -45,13 +55,99 @@ def _validate_ipv4_address_inline(ip_str: str) -> tuple[bool, str]:
         return False, "Alamat IP gateway tidak valid. Contoh yang benar: 192.168.1.1"
 
 
+def _peer_text(state, iface_id: str) -> str:
+    for link in state.links:
+        other = link.interface_b if link.interface_a == iface_id else link.interface_a if link.interface_b == iface_id else None
+        if other:
+            dev = topo.find_device_of_interface(state, other)
+            iface = state.get_interface(other)
+            if dev and iface:
+                return f"{dev.name} {iface.name}"
+    return "tidak terhubung"
+
+
+def _on_pick_device() -> None:
+    set_selected_device(st.session_state.get("sel_config_dev"))
+
+
+def _gateway_form(dev) -> None:
+    with st.form(f"form_gw_{dev.id}", border=True):
+        st.markdown("**Default gateway**")
+        cur = dev.default_gateway or ""
+        st.caption(f"Saat ini: {cur or 'belum diatur'}")
+        new = st.text_input("Gateway baru", value=cur, placeholder="misal: 192.168.1.1", key=f"input_gw_{dev.id}")
+        if st.form_submit_button("Simpan gateway", type="primary"):
+            cleaned = new.strip() or None
+            ok_fmt, msg = _validate_ipv4_address_inline(cleaned or "")
+            if not ok_fmt:
+                st.error(msg)
+            else:
+                ok, errors = apply_command(SetGateway(device_id=dev.id, default_gateway=cleaned))
+                if ok:
+                    st.toast(f"Gateway {dev.name} disimpan.")
+                    st.rerun()
+                else:
+                    render_error_box(errors)
+
+
+def _interface_rows(state, dev) -> None:
+    used = topo.linked_interface_ids(state)
+    ifaces = [i for i in dev.interfaces if dev.type != DeviceType.SWITCH or i.id in used]
+    if dev.type == DeviceType.SWITCH:
+        st.caption(
+            f"Switch Layer 2 tidak memakai alamat IP. {len(ifaces)} dari {len(dev.interfaces)} port terpakai."
+        )
+    if not ifaces:
+        st.info("Belum ada port yang terpakai pada perangkat ini.")
+        return
+    for iface in ifaces:
+        with st.container(border=True):
+            top = st.columns([1.2, 2.2, 1.4])
+            top[0].markdown(f"**{iface.name}**")
+            top[1].caption(f"Terhubung ke: {_peer_text(state, iface.id)}")
+            top[2].markdown(f"Status: **{'aktif' if iface.enabled else 'nonaktif'}**")
+            if dev.type != DeviceType.SWITCH:
+                with st.form(f"form_ip_{iface.id}", border=False):
+                    cur = iface.ipv4_cidr or ""
+                    c_ip, c_btn = st.columns([3, 1.2])
+                    new = c_ip.text_input(
+                        f"Alamat IP {iface.name} (saat ini: {cur or 'belum ada'})",
+                        value=cur,
+                        placeholder="misal: 192.168.1.10/24",
+                        key=f"input_ip_{iface.id}",
+                    )
+                    c_btn.markdown("&nbsp;", unsafe_allow_html=True)
+                    if c_btn.form_submit_button("Simpan IP", type="primary", width="stretch"):
+                        cleaned = new.strip() or None
+                        ok_fmt, msg = _validate_ipv4_cidr_inline(cleaned or "")
+                        if not ok_fmt:
+                            st.error(msg)
+                        else:
+                            ok, errors = apply_command(
+                                SetInterfaceIP(device_id=dev.id, interface_id=iface.id, ipv4_cidr=cleaned)
+                            )
+                            if ok:
+                                st.toast(f"Alamat {iface.name} disimpan.")
+                                st.rerun()
+                            else:
+                                render_error_box(errors)
+            label = "Nonaktifkan port" if iface.enabled else "Aktifkan port"
+            if st.button(label, key=f"btn_st_{iface.id}", width="content"):
+                ok, errors = apply_command(SetInterfaceEnabled(interface_id=iface.id, enabled=not iface.enabled))
+                if ok:
+                    st.toast(f"Status {iface.name} diubah.")
+                    st.rerun()
+                else:
+                    render_error_box(errors)
+
+
 def render_device_config_page() -> None:
-    """Merender halaman konfigurasi perangkat, interface, dan gateway."""
     render_simulation_banner()
     page_header(
         title="Konfigurasi Perangkat",
-        description="Atur penetapan alamat IP interface, status aktif/nonaktif, dan default gateway host.",
+        description="Atur alamat IP, status port, dan default gateway. Klik perangkat di topologi untuk memilihnya.",
     )
+    render_workflow_rail("device_config")
 
     state = get_state()
     if not state.devices:
@@ -64,138 +160,49 @@ def render_device_config_page() -> None:
         )
         return
 
-    col_main, col_side = st.columns([2.2, 1.0])
+    names = {d.id: f"{d.name} ({topo.type_label(d.type)})" for d in state.devices}
+    selected = get_selected_device()
+    if selected not in names:
+        selected = state.devices[0].id
+        set_selected_device(selected)
+    st.session_state["sel_config_dev"] = selected  # sinkronkan dengan klik di topologi
 
+    col_main, col_side = st.columns([1.5, 1.0], gap="medium")
     with col_main:
-        dev_options = {d.id: f"{d.name} ({d.type.value.upper()})" for d in state.devices}
-        selected_id = st.selectbox(
-            "Pilih Perangkat untuk Dikonfigurasi:",
-            options=list(dev_options.keys()),
-            format_func=lambda x: dev_options[x],
+        dev_id = st.selectbox(
+            "Perangkat yang dikonfigurasi",
+            list(names),
+            format_func=names.get,
             key="sel_config_dev",
+            on_change=_on_pick_device,
         )
-        dev = state.get_device(selected_id)
-        if not dev:
+        dev = state.get_device(dev_id)
+        if dev is None:
             return
-
-        with st.container(border=True):
-            st.markdown(f"### :material/memory: Perangkat: **{dev.name}** (`{dev.type.value.upper()}`)")
-
-            # Ringkasan Nilai Saat Ini vs Nilai Baru
-            c_sum1, c_sum2, c_sum3 = st.columns(3)
-            c_sum1.metric("ID Perangkat", dev.id)
-            c_sum2.metric("Jumlah Interface", len(dev.interfaces))
-            c_sum3.metric("Gateway Saat Ini", dev.default_gateway or "Belum Diatur")
-
-        # 1. Konfigurasi Default Gateway (khusus Host: PC dan Server)
+        used = topo.linked_interface_ids(state)
+        n_used = len([i for i in dev.interfaces if i.id in used])
+        st.caption(f"{topo.type_label(dev.type)}, {n_used} dari {len(dev.interfaces)} port terpakai.")
         if dev.type in (DeviceType.PC, DeviceType.SERVER):
-            with st.container(border=True):
-                st.markdown("#### :material/router: Konfigurasi Default Gateway")
-                st.caption(
-                    "Setiap host (PC/Server) memerlukan default gateway yang mengarah ke interface router pada subnet yang sama."
-                )
-
-                with st.form(f"form_gw_{dev.id}"):
-                    curr_gw = dev.default_gateway or ""
-                    st.markdown(f"**Nilai Gateway Saat Ini:** `{curr_gw or '(Kosong / Tidak Ada)'}`")
-
-                    new_gw = st.text_input(
-                        "Alamat IPv4 Gateway Baru:",
-                        value=curr_gw,
-                        placeholder="misal: 192.168.1.1",
-                        key=f"input_gw_{dev.id}",
-                    )
-
-                    btn_sub_gw = st.form_submit_button("Simpan Gateway", type="primary")
-                    if btn_sub_gw:
-                        cleaned_gw = new_gw.strip() or None
-                        is_valid_format, err_msg = _validate_ipv4_address_inline(cleaned_gw or "")
-                        if not is_valid_format:
-                            st.error(f"Validasi Gagal: {err_msg}")
-                        else:
-                            success, errors = apply_command(
-                                SetGateway(device_id=dev.id, default_gateway=cleaned_gw)
-                            )
-                            if success:
-                                st.toast(f"Gateway untuk '{dev.name}' berhasil diperbarui!")
-                                st.rerun()
-                            else:
-                                render_error_box(errors)
-
-        # 2. Konfigurasi Interface
-        with st.container(border=True):
-            st.markdown("#### :material/settings_ethernet: Daftar Antarmuka (Interfaces)")
-            if not dev.interfaces:
-                st.info("Perangkat ini belum memiliki interface.")
-            else:
-                for iface in dev.interfaces:
-                    with st.expander(f"Antarmuka: {iface.name} ({iface.id})", expanded=True):
-                        col_ip, col_st = st.columns([2.5, 1.5])
-
-                        with col_ip:
-                            if dev.type == DeviceType.SWITCH:
-                                st.info("Interface switch Layer 2 murni tidak memerlukan alamat IP.")
-                            else:
-                                with st.form(f"form_ip_{iface.id}"):
-                                    curr_ip = iface.ipv4_cidr or ""
-                                    st.markdown(f"**Alamat IP Saat Ini:** `{curr_ip or '(Belum Ditetapkan)'}`")
-
-                                    new_ip = st.text_input(
-                                        "Alamat IPv4 CIDR Baru:",
-                                        value=curr_ip,
-                                        placeholder="misal: 192.168.1.10/24",
-                                        key=f"input_ip_{iface.id}",
-                                    )
-
-                                    if st.form_submit_button("Simpan Alamat IP", type="primary"):
-                                        cleaned_ip = new_ip.strip() or None
-                                        is_valid_format, err_msg = _validate_ipv4_cidr_inline(cleaned_ip or "")
-                                        if not is_valid_format:
-                                            st.error(f"Validasi Gagal: {err_msg}")
-                                        else:
-                                            success, errors = apply_command(
-                                                SetInterfaceIP(
-                                                    device_id=dev.id,
-                                                    interface_id=iface.id,
-                                                    ipv4_cidr=cleaned_ip,
-                                                )
-                                            )
-                                            if success:
-                                                st.toast(f"Alamat IP interface '{iface.name}' berhasil disimpan!")
-                                                st.rerun()
-                                            else:
-                                                render_error_box(errors)
-
-                        with col_st:
-                            st.markdown("**Status Antarmuka**")
-                            st_badge = "Aktif (Up)" if iface.enabled else "Nonaktif (Down)"
-                            st.markdown(f"Kondisi: **{st_badge}**")
-
-                            toggle_label = "Nonaktifkan Interface" if iface.enabled else "Aktifkan Interface"
-                            btn_style = "secondary" if iface.enabled else "primary"
-                            if st.button(toggle_label, key=f"btn_st_{iface.id}", type=btn_style, use_container_width=True):
-                                success, errors = apply_command(
-                                    SetInterfaceEnabled(interface_id=iface.id, enabled=not iface.enabled)
-                                )
-                                if success:
-                                    st.toast(f"Status interface '{iface.name}' berhasil diubah!")
-                                    st.rerun()
-                                else:
-                                    render_error_box(errors)
+            _gateway_form(dev)
+        _interface_rows(state, dev)
 
     with col_side:
-        # Panel Panduan Konfigurasi
-        with st.expander(":material/school: Panduan Konfigurasi", expanded=False):
+        layout = topo.resolve_layout(state, get_layout())
+        payload = topo.component_payload(state, layout, get_cables(), None, selected, editable=False)
+        event = topology_view(payload, key="config_topology")
+        if apply_component_event(event, "config_topology"):
+            st.rerun()
+        with st.expander("Panduan konfigurasi", expanded=False):
             st.markdown(
-                "- **IPv4 CIDR**: Alamat IP wajib disertai prefix subnet mask (misal `/24` untuk `255.255.255.0`).\n"
-                "- **Subnet Gateway**: IP gateway host harus satu subnet dengan IP interface host tersebut.\n"
-                "- **Switch L2**: Switch menghubungkan perangkat pada collision domain/subnet yang sama tanpa IP L3.\n"
-                "- **Status Up/Down**: Paket tidak dapat melewati interface yang berada dalam status Down."
+                "- **IPv4 CIDR**: alamat wajib disertai prefix, misalnya `/24`.\n"
+                "- **Gateway**: harus satu subnet dengan alamat host.\n"
+                "- **Switch**: Layer 2, tanpa alamat IP.\n"
+                "- **Port nonaktif**: paket tidak dapat melewatinya."
             )
-
-        # Langkah Berikutnya
         next_steps([
             ("Tinjau Topologi 2D", "network"),
             ("Atur Aturan Firewall", "firewall_rules"),
             ("Jalankan Uji Paket", "packet_sim"),
         ])
+
+    render_flow_next("firewall_rules", "Aturan Firewall", "Lanjutkan ke konfigurasi aturan firewall.")

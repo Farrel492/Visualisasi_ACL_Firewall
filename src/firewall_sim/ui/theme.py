@@ -128,6 +128,16 @@ def inject_theme_css() -> str:
 .fw-term-prompt { color: #3FB6C4; font-weight: 500; } .fw-term-cmd { color: #F2F5F7; }
 .fw-term-ok { color: #5CCB86; } .fw-term-err { color: #F2766C; } .fw-term-dim { color: #7F8E99; }
 
+/* ---------- tabel aturan (gaya listing konfigurasi) ---------- */
+.fw-rule-wrap { overflow-x: auto; margin: 4px 0 12px; border: 1px solid var(--fw-line); border-radius: var(--fw-r-data); background: var(--fw-panel); }
+.fw-rule-table { width: 100%; border-collapse: collapse; font-family: var(--fw-mono); font-size: 0.82rem; color: var(--fw-ink); }
+.fw-rule-table th { text-align: left; font: 600 0.74rem "IBM Plex Sans", sans-serif; color: var(--fw-mute); padding: 7px 10px; border-bottom: 1px solid var(--fw-line); background: #ECEFF1; }
+.fw-rule-table td { padding: 7px 10px; border-bottom: 1px solid #DDE1E5; white-space: nowrap; }
+.fw-rule-table tr:last-child td { border-bottom: 0; }
+.fw-row-off td { color: var(--fw-mute); text-decoration: line-through; text-decoration-color: #9AA5AE; }
+.fw-act-accept { color: var(--fw-ok-text); font-weight: 500; } .fw-act-drop { color: var(--fw-deny-text); font-weight: 500; }
+.fw-led.off { background: #9AA5AE; }
+
 /* ---------- animasi masuk per halaman (sekali, singkat) ---------- */
 @keyframes fw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fw-fade { from { opacity: 0; } to { opacity: 1; } }
