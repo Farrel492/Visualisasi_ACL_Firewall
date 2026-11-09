@@ -138,6 +138,14 @@ def inject_theme_css() -> str:
 .fw-act-accept { color: var(--fw-ok-text); font-weight: 500; } .fw-act-drop { color: var(--fw-deny-text); font-weight: 500; }
 .fw-led.off { background: #9AA5AE; }
 
+/* ---------- kartu hasil uji paket ---------- */
+.fw-result { background: var(--fw-panel); border: 1px solid var(--fw-line); border-left: 5px solid var(--c, var(--fw-accent)); border-radius: var(--fw-r-control); padding: 14px 18px; margin: 6px 0 10px; }
+.fw-result-meta { font: 400 0.78rem var(--fw-mono); color: var(--fw-mute); }
+.fw-result-title { font: 600 1.3rem/1.35 "IBM Plex Sans", sans-serif; color: var(--fw-ink); margin: 2px 0 6px; }
+.fw-result-verdict { font: 400 0.95rem "IBM Plex Sans", sans-serif; color: var(--fw-ink); }
+.fw-result-verdict b { font-family: var(--fw-mono); font-weight: 500; }
+.fw-result-reason { margin-top: 6px; font-size: 0.88rem; color: var(--fw-mute); }
+
 /* ---------- animasi masuk per halaman (sekali, singkat) ---------- */
 @keyframes fw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fw-fade { from { opacity: 0; } to { opacity: 1; } }

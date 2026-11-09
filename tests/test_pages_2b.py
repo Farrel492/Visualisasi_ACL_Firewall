@@ -111,3 +111,55 @@ def test_overview_recent_tests_table_uses_device_names():
     flat = str(frames)
     assert "PC B" in flat and "Web Server" in flat
     assert "pc_b" not in flat
+
+
+# ----------------------------------------------------------------- Simulasi Paket (2c)
+
+
+def test_quick_presets_follow_active_topology():
+    from firewall_sim.ui.pages import packet_sim as ps
+
+    presets = ps.quick_presets(default_lab())
+    assert [p["key"] for p in presets] == ["btn_quick_pca_web", "btn_quick_pcb_web", "btn_quick_pca_pcb"]
+    assert presets[0]["label"] == "PC A ke Web Server, HTTP 80"
+
+
+def test_result_card_has_names_not_internal_ids():
+    at = _demo_app()
+    _goto(at, "packet_sim")
+    html = " ".join(m.value for m in at.markdown)
+    assert "PC B ke Web Server" in html
+    assert "DROP" in html and "aturan #2" in html
+    assert "pc_b" not in html and "demo_rule_drop" not in html
+
+
+def test_packet_sim_quick_test_adds_result_and_view_in_3d_selects_it():
+    at = _demo_app()
+    _goto(at, "packet_sim")
+    before = len(at.session_state["fw_sim_pairs"])
+    [b for b in at.button if b.key == "btn_quick_pca_web"][0].click().run()
+    assert not at.exception
+    assert len(at.session_state["fw_sim_pairs"]) == before + 1
+    [b for b in at.button if b.key == "btn_pkt_view_3d"][0].click().run()
+    assert not at.exception
+    assert at.session_state[KEY_NAV_PAGE] == "viz3d"
+    assert at.selectbox(key="sel_viz3d_test").value == 0
+
+
+def test_packet_sim_marks_old_result_when_config_changed():
+    at = _demo_app()
+    from firewall_sim.config.service import ToggleRule
+
+    _goto(at, "firewall_rules")
+    [b for b in at.button if b.key == "toggle_forward"][0].click().run()
+    _goto(at, "packet_sim")
+    assert any("Konfigurasi sudah berubah" in w.value for w in at.warning)
+
+
+def test_packet_sim_custom_manual_ip_requires_value():
+    at = _demo_app()
+    _goto(at, "packet_sim")
+    at.radio(key="rad_pkt_dst_mode").set_value("Alamat IP manual").run()
+    [b for b in at.button if b.key == "btn_run_custom_packet"][0].click().run()
+    assert not at.exception
+    assert any("IP tujuan" in e.value for e in at.error)
