@@ -146,6 +146,11 @@ def inject_theme_css() -> str:
 .fw-result-verdict b { font-family: var(--fw-mono); font-weight: 500; }
 .fw-result-reason { margin-top: 6px; font-size: 0.88rem; color: var(--fw-mute); }
 
+/* ---------- strip ringkasan satu baris ---------- */
+.fw-strip { display: flex; flex-wrap: wrap; gap: 6px 26px; align-items: center; padding: 10px 14px; margin: 0 0 14px; background: var(--fw-panel); border: 1px solid var(--fw-line); border-radius: var(--fw-r-control); font: 400 0.9rem var(--fw-mono); color: var(--fw-ink); }
+.fw-strip b { font-weight: 500; margin-right: 6px; }
+.fw-strip .fw-led { display: inline-block; }
+
 /* ---------- animasi masuk per halaman (sekali, singkat) ---------- */
 @keyframes fw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fw-fade { from { opacity: 0; } to { opacity: 1; } }

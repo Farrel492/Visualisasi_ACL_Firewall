@@ -367,6 +367,19 @@ def clear_simulation_data() -> None:
     st.session_state[KEY_CLI_LOG] = []
 
 
+def load_scenario_state(new_state: ProjectState) -> None:
+    """Muat skenario sebagai workspace baru: topologi diganti, hasil lama (yang merujuk topologi lain) dibersihkan."""
+    init_session_state()
+    st.session_state[KEY_STATE] = new_state
+    st.session_state[KEY_LAYOUT] = {}
+    st.session_state[KEY_CABLES] = {}
+    st.session_state[KEY_SELECTED_DEVICE] = None
+    st.session_state[KEY_HISTORY] = []
+    st.session_state[KEY_PAIRS] = []
+    st.session_state[KEY_TRAFFIC_LOGS] = []
+    st.session_state[KEY_EVENTS] = []
+
+
 def clear_test_history() -> None:
     """Hapus riwayat uji (hasil + pasangan paket) tanpa menyentuh log dan peringatan."""
     init_session_state()
@@ -377,6 +390,22 @@ def clear_test_history() -> None:
 def clear_traffic_logs() -> None:
     init_session_state()
     st.session_state[KEY_TRAFFIC_LOGS] = []
+
+
+def acknowledge_security_events(event_ids=None) -> int:
+    """Tandai peringatan sebagai sudah ditinjau. event_ids=None berarti semua. Mengembalikan jumlah yang berubah."""
+    from dataclasses import replace
+
+    init_session_state()
+    changed = 0
+    updated = []
+    for ev in st.session_state[KEY_EVENTS]:
+        if not ev.acknowledged and (event_ids is None or ev.id in event_ids):
+            ev = replace(ev, acknowledged=True)
+            changed += 1
+        updated.append(ev)
+    st.session_state[KEY_EVENTS] = updated
+    return changed
 
 
 def clear_security_events() -> None:

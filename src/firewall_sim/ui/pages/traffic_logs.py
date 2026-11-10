@@ -1,4 +1,4 @@
-"""Traffic Logs dashboard page."""
+"""Log Trafik: riwayat setiap paket virtual yang dievaluasi, dengan filter dan penjelasan keputusan."""
 
 from __future__ import annotations
 
@@ -14,47 +14,72 @@ from firewall_sim.ui.components import (
     render_simulation_banner,
     render_workflow_rail,
 )
-from firewall_sim.ui.state import clear_traffic_logs, get_traffic_logs
-from firewall_sim.ui.theme import get_decision_badge
+from firewall_sim.ui.labels import device_name, friendly_text, rule_label
+from firewall_sim.ui.state import clear_traffic_logs, get_state, get_traffic_logs
 
 
-
-@st.dialog("Kosongkan Log Trafik")
+@st.dialog("Kosongkan log trafik")
 def _dialog_clear_traffic_logs():
-    st.write("Semua catatan log trafik simulasi akan dihapus permanen dari memori sesi.")
+    st.write("Semua catatan log trafik akan dihapus. Riwayat uji di Simulasi Paket tidak ikut terhapus.")
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("Ya, kosongkan", type="primary", key="btn_confirm_clear_logs", use_container_width=True):
+        if st.button("Ya, kosongkan", type="primary", key="btn_confirm_clear_logs", width="stretch"):
             clear_traffic_logs()
-            st.toast("Log trafik berhasil dikosongkan.")
+            st.toast("Log trafik dikosongkan.")
             st.rerun()
     with c2:
-        if st.button("Batal", key="btn_cancel_clear_logs", use_container_width=True):
+        if st.button("Batal", key="btn_cancel_clear_logs", width="stretch"):
             st.rerun()
+
+
+def summary_strip_html(summary: dict) -> str:
+    return (
+        '<div class="fw-strip" translate="no">'
+        f"<span><b>Total</b> {summary['total']}</span>"
+        f'<span><i class="fw-led ok"></i><b>ACCEPT</b> {summary["ACCEPT"]}</span>'
+        f'<span><i class="fw-led deny"></i><b>DROP</b> {summary["DROP"]}</span>'
+        f'<span><i class="fw-led amber"></i><b>NO_ROUTE</b> {summary["NO_ROUTE"]}</span>'
+        "</div>"
+    )
+
+
+def log_rows(state, logs):
+    rows = []
+    for log in logs:
+        dest = device_name(state, log.destination_target)
+        port = f":{log.dst_port}" if log.dst_port else ""
+        rev = f"#{log.config_revision}" + (" (usang)" if log.config_revision != state.config_revision else "")
+        rows.append(
+            {
+                "Waktu": log.timestamp.strftime("%H:%M:%S"),
+                "Sumber": device_name(state, log.source_device),
+                "Tujuan": f"{dest}{port}",
+                "Protokol": log.protocol.value.upper(),
+                "Keputusan": log.decision.value,
+                "Penentu": rule_label(state, log.matched_rule_id),
+                "Revisi": rev,
+                "Alasan": friendly_text(state, log.reason),
+            }
+        )
+    return rows
 
 
 def render_traffic_logs_page() -> None:
-    """Merender dasbor log analisis lalu lintas paket virtual."""
     render_simulation_banner()
     page_header(
         title="Log Trafik",
-        description="Pencatatan riwayat seluruh paket virtual yang dievaluasi dalam simulator jaringan.",
+        description="Catatan setiap paket virtual yang dievaluasi, lengkap dengan keputusan dan penentunya.",
     )
     render_workflow_rail("traffic_logs")
 
+    state = get_state()
     logs = get_traffic_logs()
     summary = summarize_traffic(logs)
-
-    # 1. Baris KPI Metrik Agregasi
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Pengujian", summary["total"], border=True)
-    m2.metric("Lolos (ACCEPT)", summary["ACCEPT"], border=True)
-    m3.metric("Ditolak (DROP)", summary["DROP"], border=True)
-    m4.metric("Rute Hilang (NO_ROUTE)", summary["NO_ROUTE"], border=True)
+    st.markdown(summary_strip_html(summary), unsafe_allow_html=True)
 
     if not logs:
         empty_state(
-            message="Belum ada catatan log trafik jaringan. Kirim paket pengujian pada menu Simulasi Paket untuk mengisi log.",
+            message="Belum ada catatan log. Kirim paket uji di Simulasi Paket untuk mengisi log.",
             action_label="Mulai Uji Paket",
             target_page_or_callback="packet_sim",
             key="empty_logs_btn",
@@ -62,88 +87,42 @@ def render_traffic_logs_page() -> None:
         )
         return
 
-    col_main, col_side = st.columns([2.2, 1.0])
-
+    col_main, col_side = st.columns([2.6, 1.0], gap="medium")
     with col_main:
-        # Filter Bar Log
-        with st.container(border=True):
-            st.markdown("#### :material/filter_alt: Filter Catatan Log")
-            c_f1, c_f2 = st.columns([1, 2])
-            with c_f1:
-                dec_options = ["Semua Keputusan", "ACCEPT", "DROP", "NO_ROUTE"]
-                sel_dec_label = st.selectbox("Status Keputusan:", dec_options, key="sel_log_dec")
-                sel_dec = None
-                if sel_dec_label != "Semua Keputusan":
-                    sel_dec = Decision(sel_dec_label)
-
-            with c_f2:
-                search_ip = st.text_input("Pencarian Host / Alamat IP:", placeholder="misal: 192.168.1.10 atau pc_a", key="input_log_search")
-
-        filtered_logs = filter_traffic(logs, decision=sel_dec, ip_or_device=search_ip)
-
-        col_cap, col_clr = st.columns([3, 1.4])
-        with col_cap:
-            st.caption(f"Menampilkan **{len(filtered_logs)}** dari total **{len(logs)}** catatan log virtual.")
-        with col_clr:
-            if logs:
-                if st.button("Kosongkan log", icon=":material/delete:", key="btn_clear_logs", use_container_width=True):
-                    _dialog_clear_traffic_logs()
-
-        # Tabel Log Terformat
-        if not filtered_logs:
-            st.info("Tidak ada catatan log yang cocok dengan kriteria pencarian.")
-        else:
-            table_data = []
-            for log in filtered_logs:
-                port_s = f":{log.dst_port}" if log.dst_port else ""
-                table_data.append(
-                    {
-                        "Waktu": log.timestamp.strftime("%H:%M:%S"),
-                        "ID Uji": log.id,
-                        "Sumber": log.source_device,
-                        "Tujuan": f"{log.destination_target}{port_s}",
-                        "Protokol": log.protocol.value.upper(),
-                        "Keputusan": get_decision_badge(log.decision),
-                        "Rule Cocok": log.matched_rule_id or "—",
-                        "Revisi": f"Rev #{log.config_revision}",
-                        "Alasan": log.reason,
-                    }
-                )
-
-            st.dataframe(
-                table_data,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Waktu": st.column_config.TextColumn("Waktu"),
-                    "ID Uji": st.column_config.TextColumn("ID Uji"),
-                    "Sumber": st.column_config.TextColumn("Perangkat Sumber"),
-                    "Tujuan": st.column_config.TextColumn("Target Tujuan"),
-                    "Protokol": st.column_config.TextColumn("Protokol"),
-                    "Keputusan": st.column_config.TextColumn("Keputusan Firewall"),
-                    "Rule Cocok": st.column_config.TextColumn("Rule Pemicu"),
-                    "Revisi": st.column_config.TextColumn("Revisi Konfigurasi"),
-                    "Alasan": st.column_config.TextColumn("Alasan Keputusan"),
-                },
+        c_f1, c_f2, c_f3 = st.columns([1, 1.6, 1])
+        with c_f1:
+            sel_dec_label = st.selectbox(
+                "Keputusan", ["Semua", "ACCEPT", "DROP", "NO_ROUTE"], key="sel_log_dec"
             )
+        with c_f2:
+            search = st.text_input("Cari host atau alamat IP", placeholder="misal: PC A atau 192.168.1.10", key="input_log_search")
+        with c_f3:
+            st.markdown("&nbsp;", unsafe_allow_html=True)
+            if st.button("Kosongkan log", icon=":material/delete:", key="btn_clear_logs", width="stretch"):
+                _dialog_clear_traffic_logs()
+
+        sel_dec = None if sel_dec_label == "Semua" else Decision(sel_dec_label)
+        # pencarian boleh memakai nama perangkat: ubah nama menjadi ID sebelum difilter
+        needle = (search or "").strip()
+        by_name = {d.name.lower(): d.id for d in state.devices}
+        if needle.lower() in by_name:
+            needle = by_name[needle.lower()]
+        filtered = filter_traffic(logs, decision=sel_dec, ip_or_device=needle)
+
+        st.caption(f"Menampilkan {len(filtered)} dari {len(logs)} catatan.")
+        if not filtered:
+            st.info("Tidak ada catatan yang cocok dengan filter.")
+        else:
+            st.dataframe(log_rows(state, filtered), hide_index=True, width="stretch")
 
     with col_side:
-        # Panel Informasi & Langkah Berikutnya
-        with st.container(border=True):
-            st.markdown("#### :material/insights: Analisis Cepat")
-            pct_allow = round((summary["ACCEPT"] / summary["total"] * 100) if summary["total"] else 0, 1)
-            pct_deny = round((summary["DROP"] / summary["total"] * 100) if summary["total"] else 0, 1)
-            st.markdown(
-                f"- **Rasio Lolos**: `{pct_allow}%`\n"
-                f"- **Rasio Blokir**: `{pct_deny}%`\n"
-                f"- **Status Log**: Penyimpanan in-memory stabil."
-            )
-
+        pct_allow = round(summary["ACCEPT"] / summary["total"] * 100) if summary["total"] else 0
+        pct_deny = round(summary["DROP"] / summary["total"] * 100) if summary["total"] else 0
+        st.caption(f"Lolos {pct_allow}%, ditolak {pct_deny}% dari {summary['total']} uji.")
         next_steps([
             ("Buka Pusat Peringatan", "alerts"),
             ("Lihat Replay 3D", "viz3d"),
             ("Jalankan Uji Paket Lain", "packet_sim"),
         ])
 
-    render_flow_next("alerts", "Pusat Peringatan", "Periksa rincian event penolakan atau analisis lebih lanjut.")
-
+    render_flow_next("alerts", "Pusat Peringatan", "Periksa event penolakan dan tandai yang sudah ditinjau.")
