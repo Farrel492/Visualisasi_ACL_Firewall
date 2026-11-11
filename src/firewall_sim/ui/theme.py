@@ -123,7 +123,11 @@ def inject_theme_css() -> str:
 .fw-terminal-bar { background: #181E23; padding: 0.4rem 0.75rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--fw-screen-line); font-family: var(--fw-mono); font-size: 0.75rem; color: #93A1AC; }
 .fw-terminal-dots { display: flex; gap: 0.35rem; }
 .fw-terminal-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; background: #55626D; }
-.fw-terminal-body { padding: 0.85rem 1rem; font-family: var(--fw-mono); font-size: 0.85rem; line-height: 1.5; max-height: 380px; overflow-y: auto; }
+.fw-terminal-body { padding: 0.85rem 1rem; font-family: var(--fw-mono); font-size: 0.85rem; line-height: 1.5; height: 400px; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+.fw-term-inner { width: 100%; }
+.fw-cursor { display: inline-block; width: 0.55em; height: 1.05em; background: #5CCB86; vertical-align: text-bottom; animation: fw-blink 1.1s steps(1) infinite; }
+@keyframes fw-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fw-cursor { animation: none; } }
 .fw-term-line { margin: 0.2rem 0; white-space: pre-wrap; word-break: break-all; color: var(--fw-screen-text); }
 .fw-term-prompt { color: #3FB6C4; font-weight: 500; } .fw-term-cmd { color: #F2F5F7; }
 .fw-term-ok { color: #5CCB86; } .fw-term-err { color: #F2766C; } .fw-term-dim { color: #7F8E99; }

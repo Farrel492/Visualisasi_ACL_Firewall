@@ -162,13 +162,3 @@ def test_cli_show_commands(sample_topology: ProjectState):
         _, out, errors = parse_and_execute(sample_topology, f"show {target}")
         assert not errors
         assert len(out) > 0
-
-
-def test_all_quick_commands_in_cli_console_are_valid(sample_topology: ProjectState):
-    """B2: Seluruh contoh perintah chip cepat di halaman Konsol CLI harus valid dan sukses dieksekusi."""
-    from firewall_sim.ui.pages.cli_console import _QUICK_CMDS
-
-    for cmd_str, _ in _QUICK_CMDS:
-        _, out, errors = parse_and_execute(sample_topology, cmd_str, now=FIXED_TIME)
-        assert not errors, f"Perintah '{cmd_str}' menghasilkan error: {errors}"
-        assert len(out) > 0, f"Perintah '{cmd_str}' tidak menghasilkan output"

@@ -339,6 +339,14 @@ def record_cli_interaction(command: str, output: str, errors: List[str]) -> None
     log_list.append((command, output, errors))
 
 
+def record_cli_entry(prompt: str, command: str, lines, device_name: str = "") -> None:
+    """Catat satu interaksi CLI gaya baru: prompt saat perintah diketik, perintah, dan baris keluaran (jenis, teks)."""
+    init_session_state()
+    st.session_state[KEY_CLI_LOG].append(
+        {"p": prompt, "c": command, "l": [[k, t] for k, t in lines], "d": device_name}
+    )
+
+
 def get_cli_history() -> List[Tuple[str, str, List[str]]]:
     """Mengambil riwayat interaksi sesi CLI."""
     init_session_state()

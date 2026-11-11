@@ -134,9 +134,11 @@ def test_ui_bridge_cli_rule_reflected_in_rules_page():
     cli_btn.click().run()
     assert not at.exception
 
-    at.text_input[0].set_value('rule add chain=forward proto=tcp dport=443 action=accept comment="HTTPS Access"')
-    [b for b in at.button if b.label == "Kirim"][0].click().run()
-    assert not at.exception
+    for command in ("enable", "configure terminal",
+                    'rule add chain=forward proto=tcp dport=443 action=accept comment="HTTPS Access"'):
+        at.text_input[0].set_value(command)
+        [b for b in at.button if b.label == "Kirim"][0].click().run()
+        assert not at.exception
 
     rules_btn = [b for b in at.button if b.key == "nav_firewall_rules"][0]
     rules_btn.click().run()
