@@ -1,66 +1,59 @@
 # Firewall Simulator
 
-Aplikasi simulasi firewall/ACL interaktif berbasis Python Streamlit: topologi 2D, visualisasi paket 3D, log, dan alert. Semua aktivitas adalah simulasi, bukan trafik jaringan nyata.
+Simulator firewall jaringan virtual berbasis web (Streamlit). Pengguna merancang topologi (PC, switch, router firewall, server), menyusun aturan filter paket, mengirim paket uji, lalu melihat **keputusan firewall (ACCEPT, DROP, NO_ROUTE) beserta alasannya** di topologi 2D, replay 3D, log, dan peringatan. Semuanya simulasi: tidak ada paket atau perangkat jaringan nyata yang disentuh.
 
 ## Menjalankan
 
-    python -m venv .venv
-    .venv\Scripts\activate
-    pip install -r requirements.txt
-    streamlit run app.py
+Persyaratan: Python 3.13 (diuji), dependensi di `requirements.txt` (Streamlit 1.66.1, Plotly, pytest).
+
+```
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Buka `http://localhost:8501`, lalu klik **Muat demo siap pakai** di halaman Mulai di Sini.
+
+Matikan terjemahan otomatis browser (Chrome/Edge Translate) untuk `localhost`; terjemahan merusak label dan dapat memicu error tampilan.
 
 ## Menguji
 
-    pytest
+```
+.\.venv\Scripts\python.exe -m pytest -q
+```
 
-## Fitur Utama
-1. **Hybrid 2D/3D Workspace**:
-   - Workspace 2D untuk penyusunan topologi, inspeksi interface, dan koneksi link.
-   - Visualisasi 3D (Plotly Scatter3d) dengan pemutaran trace paket langkah-demi-langkah (slider/prev-next) tahan rerun; paket DROP berhenti di firewall router (T10).
-2. **Learning & Professional Mode**:
-   - Mode switcher interaktif di sidebar.
-   - *Learning Mode*: Panel penjelasan konsep firewall (chain, rule order, first match wins, implicit deny vs default policy).
-   - *Professional Mode*: Tampilan ringkas terpadu.
-3. **Traffic Logs & Monitoring**:
-   - Agregasi statistik metrik (total, ACCEPT, DROP, NO_ROUTE).
-   - Filter data berdasarkan keputusan, alamat IP/perangkat, dan rentang waktu.
-4. **Security Alert Center**:
-   - Deteksi dan ringkasan event penolakan paket (DROP).
-   - Teks panduan permanen: penolakan paket adalah perilaku kebijakan normal, bukan otomatis serangan.
-5. **Learning Lab (Guided Scenarios)**:
-   - 4 skenario praktik terpadu: Web Allow (HTTP), SSH Blocked (Policy DROP), Colliding Rules (First Match Wins), dan Wrong Subnet/Gateway (NO_ROUTE).
-   - Tombol muat skenario dan eksekusi uji otomatis.
-6. **JSON Storage & Persistence**:
-   - Simpan dan muat proyek dalam format JSON terstruktur lengkap dengan verifikasi `schema_version` dan validasi topologi.
-7. **CLI Console**:
-   - Terminal parser aman berbasis `shlex` (tanpa eval/exec/subprocess).
+Ringkasan hasil dan pemetaan T01-T14 ada di `docs/TEST_REPORT.md`.
 
-## Perintah CLI (Cisco/Packet Tracer Inspired Subset)
-Aplikasi menyediakan terminal CLI interaktif dengan tata bahasa berikut:
-- `help` : Menampilkan bantuan.
-- `show <running-config|interfaces|rules [chain]|policy|audit|revision|links>` : Menampilkan status dan konfigurasi.
-- `interface <device> <ifname> ip address <ip> <prefix|netmask>` : Mengatur IP interface.
-- `interface <device> <ifname> <shutdown|no shutdown>` : Mengatur status interface.
-- `gateway <host> <ip>` : Mengatur default gateway host.
-- `rule add chain=<input|forward|output> [src=..] [dst=..] [proto=..] [sport=..] [dport=..] action=<accept|drop> [comment=".."]` : Menambah aturan firewall.
-- `rule remove <id> | rule enable <id> | rule disable <id> | rule move <id> <order>` : Manajemen aturan firewall.
-- `policy <chain> <accept|drop>` : Mengatur default policy per chain.
-- `access-list <permit|deny> <proto> <src|any> <dst|any> [eq <port>]` : Translasi ACL ke aturan kanonik chain forward.
-- `test <src_device> <dst_device_or_ip> <tcp|udp|icmp> [port]` : Simulasi paket virtual via CLI.
+## Fitur
 
-## Diagnostik Browser & Pengaturan Toolbar
-- **Terjemahan Otomatis Browser (Wajib Dinonaktifkan)**: Harap nonaktifkan fitur terjemahan otomatis peramban (Google Chrome Translate / Microsoft Edge Translate) untuk alamat `localhost`. Fitur terjemahan otomatis merusak teks dan label teknis (misalnya chip CLI `help` diterjemahkan keliru menjadi "membantu", dan perintah ACL `permit` menjadi "pember"), serta memodifikasi struktur DOM teks internal React Streamlit yang memicu galat runtime fatal `NotFoundError: Failed to execute 'removeChild' on 'Node'`. Matikan terjemahan untuk situs localhost pada pengaturan peramban Anda.
-- **Mode Toolbar Pengembang**: Toolbar bawaan Streamlit secara default diatur ke `toolbarMode = "minimal"` pada `.streamlit/config.toml` guna menyembunyikan tombol Deploy dan menu bawaan yang mengganggu presentasi. Jika Anda memerlukan menu developer saat debugging lokal, ubah menjadi `toolbarMode = "developer"`.
+- **Topologi 2D** interaktif: gambar perangkat, seret untuk memindahkan, kabel FastEthernet/Serial, switch 24 port.
+- **Visualisasi 3D** (Three.js, dibundel lokal): putar, zoom, geser, replay paket langkah demi langkah; DROP berhenti di router.
+- **Aturan firewall** berurutan (first match wins), default policy per chain, Naik/Turun/Aktifkan/Hapus.
+- **Simulasi paket**: uji cepat dan paket kustom, kartu hasil dengan alasan dan jalur.
+- **Log trafik** dan **pusat peringatan** (DROP bukan otomatis serangan).
+- **Lab belajar**: skenario terpandu dengan penilaian Lulus/Belum sesuai.
+- **Konsol CLI** gaya Cisco IOS (router, switch) dan Windows (PC, server).
+- **Penyimpanan otomatis**: pekerjaan tetap ada setelah refresh (token di URL `?w=...`).
+- Proyek dapat diekspor dan diimpor (JSON) dari Dasbor.
 
-## Dokumentasi Lengkap
-- `docs/UI_AUDIT.md`: Laporan audit antarmuka, reproduksi error topologi, dan matriks fungsionalitas
-- `docs/USER_GUIDE.md`: Panduan pengguna, alur kerja, skrip demo 10 menit, dan glosarium
-- `docs/TEST_REPORT.md`: Laporan pengujian kriteria penerimaan T01-T14 & benchmark kinerja
-- `docs/PRD.md`: Spesifikasi produk
-- `docs/PROJECT_CONTEXT.md`: Status proyek terkini
-- `docs/CHANGELOG.md`: Riwayat perubahan
-- `docs/adr/`: Keputusan arsitektur
-- `AGENTS.md`: Aturan untuk AI agent
+## Struktur
 
-## Status
-Fitur MVP Lengkap, Audit & Redesain UI Tahap R1 Selesai (77 Pytest Passed, 0 Failed, Bebas Emoji, Toolbar Minimal, Sidebar SVG Logo, Form Topologi Sempurna). Lihat `docs/PROJECT_CONTEXT.md`.
+```
+app.py                      kerangka aplikasi dan router halaman
+src/firewall_sim/core/      engine: model, aturan, simulator, validasi, alert, analitik
+src/firewall_sim/config/    ConfigService, parser CLI lama, CLI gaya Cisco (ios_cli.py)
+src/firewall_sim/storage/   simpan/muat proyek (JSON)
+src/firewall_sim/scenarios/ topologi demo dan skenario Lab
+src/firewall_sim/ui/        halaman, komponen, tema, workspace, komponen 2D/3D (frontend/)
+static/fonts/               IBM Plex (lisensi OFL)
+tests/                      pytest
+docs/                       PRD, panduan pengguna, laporan uji, changelog, ADR
+```
+
+## Dokumen
+
+`docs/USER_GUIDE.md` (panduan), `docs/TEST_REPORT.md` (hasil uji), `docs/PROJECT_CONTEXT.md` (konteks teknis), `docs/CHANGELOG.md`, `docs/adr/` (keputusan arsitektur).
+
+## Batasan
+
+Router tunggal; ping yang berasal dari router sendiri (chain OUTPUT) belum didukung; tidak ada deteksi serangan otomatis (backlog P2). Lihat `docs/PROJECT_CONTEXT.md`.

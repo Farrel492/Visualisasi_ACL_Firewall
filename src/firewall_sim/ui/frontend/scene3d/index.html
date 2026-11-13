@@ -71,6 +71,13 @@ scene.background = new THREE.Color(0x1a2127);
 scene.fog = new THREE.Fog(0x1a2127, 18, 34);
 const camera = new THREE.PerspectiveCamera(42, 2, 0.1, 100);
 const HOME = new THREE.Vector3(0, 9.5, 11.5);
+function fitCamera() {
+  // jauhkan kamera bila perangkat tersebar lebar agar semuanya masuk bingkai
+  let ex = 0, ez = 0;
+  Object.values(nodes).forEach((n) => { ex = Math.max(ex, Math.abs(n.group.position.x)); ez = Math.max(ez, Math.abs(n.group.position.z)); });
+  const k = Math.max(1, (ex + 3.2) / 8.6, (ez + 2.4) / 5.2);
+  HOME.set(0, 9.5 * k, 11.5 * k);
+}
 camera.position.copy(HOME);
 let controls = null;
 if (renderer) {
@@ -170,7 +177,7 @@ function makeLabel(name, sub) {
   x.fillText(sub, 256, 124, 470);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  s.scale.set(2.9, 0.9, 1); s.renderOrder = 10; return s;
+  s.scale.set(2.9, 0.9, 1); s.userData.base = [2.9, 0.9]; s.renderOrder = 10; return s;
 }
 function smallLabel(text, color) {
   const c = document.createElement("canvas"); c.width = 192; c.height = 64;
@@ -179,7 +186,7 @@ function smallLabel(text, color) {
   x.lineWidth = 8; x.strokeStyle = "#1A2127"; x.strokeText(text, 96, 44); x.fillStyle = color; x.fillText(text, 96, 44);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  s.scale.set(1.2, 0.4, 1); s.renderOrder = 11; return s;
+  s.scale.set(1.2, 0.4, 1); s.userData.base = [1.2, 0.4]; s.renderOrder = 11; return s;
 }
 function roundRect(x, px, py, w, h, r) { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); }
 
@@ -237,7 +244,8 @@ function build() {
   pk.visible = false; dynamic.add(pk); packet = pk;
   pulse = new THREE.Mesh(new THREE.RingGeometry(0.8, 0.95, 40), new THREE.MeshBasicMaterial({ color: 0xe5584d, transparent: true, opacity: 0, side: THREE.DoubleSide }));
   pulse.rotation.x = -Math.PI / 2; pulse.position.y = 0.05; dynamic.add(pulse);
-  if (firstBuild) { introStart = performance.now(); }
+  fitCamera();
+  if (firstBuild) { introStart = performance.now(); camera.position.copy(HOME); }
   firstBuild = false;
 }
 function placeRing() {
@@ -258,10 +266,10 @@ function rebuildCables() {
     const mat = new THREE.MeshStandardMaterial({ color: !l.enabled ? 0x5b6772 : serial ? 0xe3a33b : 0x9fb3c0, roughness: 0.5 });
     c.mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.045, 8), mat); dynamic.add(c.mesh);
     const dir = b.clone().sub(a).normalize();
-    const ra = nodes[l.a].r * 0.85 + 0.2, rb = nodes[l.b].r * 0.85 + 0.2;
+    const ra = nodes[l.a].r * 0.85 + 0.65, rb = nodes[l.b].r * 0.85 + 0.65;
     const la = smallLabel(l.a_if, "#B6C2CB"), lb = smallLabel(l.b_if, "#B6C2CB");
-    la.position.copy(a).addScaledVector(dir, ra); la.position.y = 0.55;
-    lb.position.copy(b).addScaledVector(dir, -rb); lb.position.y = 0.55;
+    la.position.copy(a).addScaledVector(dir, ra); la.position.y = 0.2;
+    lb.position.copy(b).addScaledVector(dir, -rb); lb.position.y = 0.2;
     dynamic.add(la); dynamic.add(lb); c.label = [la, lb];
   });
 }
@@ -380,9 +388,15 @@ function resize() {
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
   }
 }
+function labelScale() {
+  if (!controls) return;
+  const k = Math.min(Math.max(camera.position.distanceTo(controls.target) / 16, 0.6), 1.25);
+  scene.traverse((o) => { if (o.isSprite && o.userData.base) o.scale.set(o.userData.base[0] * k, o.userData.base[1] * k, 1); });
+}
 function tick(now) {
   requestAnimationFrame(tick);
   if (!renderer) return;
+  labelScale();
   // animasi masuk
   if (introStart) {
     const t = Math.min((now - introStart) / 1100, 1);

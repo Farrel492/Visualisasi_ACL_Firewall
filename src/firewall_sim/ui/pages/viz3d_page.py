@@ -18,7 +18,10 @@ from firewall_sim.ui.components import (
     render_simulation_banner,
     render_workflow_rail,
 )
+from firewall_sim.ui.labels import friendly_text, rule_label
+from firewall_sim.ui.pages.packet_sim import target_text
 from firewall_sim.ui.state import (
+    get_simulation_pairs,
     get_cables,
     get_layout,
     get_selected_device,
@@ -51,11 +54,21 @@ def render_viz3d_page() -> None:
         return
 
     selected_res = None
+    pairs = get_simulation_pairs()
     if history:
-        options = {
-            idx: f"{item.timestamp.strftime('%H:%M:%S')}  {get_decision_badge(item.decision)}  ({item.test_id})"
-            for idx, item in enumerate(history)
-        }
+        if len(pairs) == len(history):
+            options = {
+                idx: (
+                    f"Uji {len(pairs) - idx}  {res.timestamp.strftime('%H:%M:%S')}  "
+                    f"{target_text(state, pkt)}  {res.decision.value}"
+                )
+                for idx, (pkt, res) in enumerate(pairs)
+            }
+        else:  # riwayat tanpa data paket (mis. dipulihkan sebagian): label sederhana tetap unik
+            options = {
+                idx: f"Uji {len(history) - idx}  {res.timestamp.strftime('%H:%M:%S')}  {res.decision.value}"
+                for idx, res in enumerate(history)
+            }
         sel_idx = st.selectbox(
             "Hasil uji yang diputar",
             options=list(options.keys()),
@@ -92,9 +105,9 @@ def render_viz3d_page() -> None:
             with st.container(border=True):
                 st.markdown("**Keputusan simulasi**")
                 st.markdown(get_decision_badge(selected_res.decision))
-                st.caption(selected_res.reason)
+                st.caption(friendly_text(state, selected_res.reason))
                 if selected_res.matched_rule_id:
-                    st.markdown(f"Rule cocok: `{selected_res.matched_rule_id}`")
+                    st.markdown(f"Penentu: {rule_label(state, selected_res.matched_rule_id)}")
                 if selected_res.decision == Decision.DROP:
                     st.caption("DROP berhenti di router; paket tidak diteruskan ke subnet tujuan.")
                 if selected_res.config_revision != state.config_revision:

@@ -86,3 +86,12 @@ def test_lab_load_only_runs_no_test():
     [b for b in at.button if b.key == "load_only_scen_web_allow"][0].click().run()
     assert not at.exception
     assert len(at.session_state[KEY_PAIRS]) == 0
+
+
+def test_viz3d_panel_and_selector_have_no_internal_ids():
+    at = _demo_app()
+    _goto(at, "viz3d")
+    label = at.selectbox(key="sel_viz3d_test").options[0]
+    assert "PC B ke Web Server" in label and "pkt_" not in label
+    texts = " ".join([c.value for c in at.caption] + [m.value for m in at.markdown])
+    assert "demo_rule" not in texts

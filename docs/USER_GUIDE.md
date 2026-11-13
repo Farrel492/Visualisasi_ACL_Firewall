@@ -1,95 +1,89 @@
-# Panduan Pengguna Firewall Simulator (User Guide)
+# Panduan Pengguna Firewall Simulator
 
-Selamat datang di **Firewall Simulator Virtual**. Dokumen ini dirancang sebagai panduan lengkap bagi pengguna baru dan evaluator akademik untuk mengoperasikan simulator jaringan, memahami mekanisme evaluasi firewall, menjalankan pengujian paket, serta melakukan pemecahan masalah (troubleshooting).
+## Apa yang dilakukan aplikasi ini
 
----
+Aplikasi menjawab satu pertanyaan: **kenapa sebuah paket diterima atau ditolak firewall?** Bayangkan satpam gerbang dengan daftar aturan. Setiap tamu (paket) diperiksa, daftar dibaca dari atas ke bawah, dan **aturan pertama yang cocok menang**. Jika tidak ada yang cocok, berlaku aturan umum (*default policy*). Semua berupa simulasi.
 
-## 1. Alur Kerja Utama 5 Langkah
+## Alur 5 langkah
 
-Firewall Simulator dirancang dengan alur kerja logis 5 tahap:
-
-```
-[1. Build] -> [2. Configure] -> [3. Simulate] -> [4. Visualize] -> [5. Analyze]
- Topologi     Aturan Firewall   Kirim Paket      Replay 3D       Log & Alert
-```
-
-1. **Langkah 1 - Build (Topologi Jaringan 2D)**:
-   - Akses menu **Topologi 2D** pada grup navigasi *Bangun & Konfigurasi*.
-   - Rancang topologi perangkat (Host PC, Switch L2, Router Firewall, dan Web Server).
-   - Hubungkan kabel virtual antar-interface perangkat.
-2. **Langkah 2 - Configure (Alamat IP & Aturan Firewall)**:
-   - Buka menu **Konfigurasi Perangkat**: tetapkan alamat IPv4 CIDR dan default gateway pada host.
-   - Buka menu **Aturan Firewall**: susun aturan filtering berurutan pada chain `FORWARD`, `INPUT`, atau `OUTPUT`, serta tentukan aksi `ACCEPT` atau `DROP`.
-3. **Langkah 3 - Simulate (Inisiasi Uji Paket Virtual)**:
-   - Buka menu **Simulasi Paket**.
-   - Tentukan perangkat sumber, tujuan (IP/perangkat), protokol (TCP/UDP/ICMP), dan port tujuan.
-   - Klik **Jalankan Simulasi Paket** atau gunakan tombol **Uji Cepat**.
-4. **Langkah 4 - Visualize (Penelusuran Jalur 3D)**:
-   - Buka menu **Visualisasi 3D**.
-   - Amati pergerakan paket virtual frame-demi-frame melintasi lapisan topologi menggunakan slider atau tombol navigasi. Paket yang terkena `DROP` akan berhenti di router.
-5. **Langkah 5 - Analyze (Log Trafik & Pusat Peringatan)**:
-   - Periksa **Log Trafik** untuk rekapitulasi tabular seluruh pengujian paket.
-   - Buka **Pusat Peringatan** untuk meninjau rekaman event penolakan firewall.
-
----
-
-## 2. Skrip Demonstrasi 10 Menit
-
-Gunakan skrip terstruktur ini saat presentasi atau demonstrasi langsung:
-
-| Menit | Menu / Aksi yang Dilakukan | Ekspektasi Hasil Visual |
+| Langkah | Halaman | Tujuan |
 |---|---|---|
-| **00:00 - 02:00** | Buka **Mulai di Sini**, klik tombol **"Muat Demo Siap Pakai"**. | Topologi standar dimuat, 2 aturan firewall terkonfigurasi, dan 2 pengujian otomatis selesai. Indikator stepper 5 kartu berubah menjadi **Selesai (Hijau)**. |
-| **02:00 - 04:00** | Buka menu **Topologi 2D**. Amati tata letak graf berlapis (PC di kiri, switch, router di tengah-kanan, server di kanan). Klik salah satu node untuk inspeksi. | Graf interaktif Plotly 520px tampil rapi dengan chip legenda. Inspector di bawah grafik menampilkan interface dan gateway aktif. |
-| **04:00 - 06:00** | Buka menu **Aturan Firewall**. Amati daftar aturan pada tab `Chain FORWARD`. Tunjukkan tombol naik/turun order dan status aktif. | Terlihat Rule #1 (ACCEPT PC A ke Server Port 80) dan Rule #2 (DROP PC B ke Server Port 80). Banner penegasan *First Match Wins* terlihat jelas. |
-| **06:00 - 08:00** | Buka menu **Simulasi Paket**. Klik tombol uji cepat **"PC A -> Server :80"** lalu **"PC B -> Server :80"**. | Muncul kartu hasil beraksen: PC A berstatus **ACCEPT (Hijau)**, sedangkan PC B berstatus **DROP (Merah)** lengkap dengan alasan penolakan dan trace bernomor. |
-| **08:00 - 10:00** | Klik tombol **"Lihat di 3D"** pada hasil DROP, amati bahwa titik paket berhenti di router. Buka **Pusat Peringatan** untuk melihat event DROP tercatat tanpa label serangan palsu. | Replay 3D menunjukkan paket berhenti di router (Z=0). Dasbor Peringatan memuat catatan resmi penolakan kebijakan. |
+| 1. Build | Topologi 2D | Susun perangkat dan kabel |
+| 2. Configure | Konfigurasi Perangkat, Aturan Firewall | Atur IP, gateway, dan aturan |
+| 3. Simulate | Simulasi Paket | Kirim paket uji |
+| 4. Visualize | Visualisasi 3D | Lihat jalur paket |
+| 5. Analyze | Log Trafik, Pusat Peringatan | Tinjau riwayat dan penolakan |
 
----
+Halaman **Mulai di Sini** selalu menampilkan satu tombol "Langkah berikutnya" yang menyesuaikan kondisi proyek.
 
-## 3. Daftar Perintah CLI (Cisco-Inspired Subset)
+## Skrip demo 10 menit
 
-Aplikasi menyediakan **Konsol Terminal CLI** yang aman dan terisolasi tanpa eksekusi shell sistem:
+1. **Mulai di Sini**: klik **Muat demo siap pakai**. Terisi 5 perangkat, 2 aturan, dan 2 hasil uji.
+2. **Topologi 2D**: lihat jaringannya (PC A, PC B, Switch LAN, Router Firewall, Web Server). Seret satu perangkat; posisinya tersimpan.
+3. **Aturan Firewall**: dua aturan di chain FORWARD: PC A ke Web Server port 80 ACCEPT, PC B ke Web Server port 80 DROP. Perhatikan kolom Status ("aktif") dan urutan nomor.
+4. **Simulasi Paket**: klik **PC B ke Web Server, HTTP 80**. Kartu hasil menyebut "DROP oleh aturan #2, chain FORWARD". Tekan **Putar paket** pada topologi di bawahnya.
+5. **Visualisasi 3D**: pilih hasil uji, tekan **Putar paket**; paket berhenti di router.
+6. **Eksperimen inti**: kembali ke **Aturan Firewall**, pilih aturan #2, klik **Matikan**, lalu uji ulang PC B. Hasilnya berubah menjadi ACCEPT dan **Revisi konfigurasi** (rail kiri bawah) naik. Hasil lama diberi label "Konfigurasi sudah berubah".
+7. **Log Trafik** dan **Pusat Peringatan**: lihat catatan tiap uji. Peringatan DROP dapat ditandai **sudah ditinjau**.
+8. **Konsol CLI**: lihat bagian CLI di bawah.
 
-| Perintah CLI | Contoh Penggunaan | Deskripsi & Kegunaan |
+## Halaman
+
+- **Dasbor**: ringkasan status, tabel uji terbaru, dan Manajemen Proyek (**Proyek baru**, **Ekspor proyek (JSON)**, **Impor proyek**, **Reset Topologi**).
+- **Topologi 2D**: panel "Kelola topologi": *Tambah perangkat*, *Hubungkan dengan kabel* (pilih jenis kabel FastEthernet atau Serial, lalu port bebas), *Hapus perangkat atau link*, *Reset posisi perangkat*. Klik perangkat untuk melihat port dan koneksinya.
+- **Konfigurasi Perangkat**: IP interface, status port, default gateway. Topologi kecil di samping form; klik perangkat untuk memilihnya. IP tidak valid ditolak dan tidak tersimpan.
+- **Aturan Firewall**: kebijakan default per chain, tabel aturan per chain, **Naik/Turun/Matikan/Hapus**, dan form **Tambah aturan** (pilih perangkat sebagai sumber/tujuan atau CIDR manual).
+- **Simulasi Paket**: **Uji cepat** dan **Paket kustom** (tujuan perangkat atau IP manual). Hasil: kalimat ringkas, alasan, aturan penentu, jalur bernomor, topologi dengan replay, **Lihat di 3D**, **Lihat di Log**, **Hapus riwayat**.
+- **Visualisasi 3D**: putar (seret latar), zoom (gulir), geser (klik kanan), pindahkan perangkat (seret perangkat). Tombol **Putar paket**, **Maju**, **Mundur**, **Reset kamera**.
+- **Log Trafik**: filter keputusan dan pencarian (boleh nama perangkat), **Kosongkan log**.
+- **Pusat Peringatan**: peringatan dari paket DROP. DROP adalah perilaku normal kebijakan, bukan otomatis serangan.
+- **Lab Belajar**: skenario terpandu. **Muat dan uji** memuat skenario, menjalankan uji, dan menampilkan Lulus atau Belum sesuai target. **Muat saja** hanya memuat skenario.
+
+## Konsol CLI
+
+Pilih perangkat pada kotak "Perangkat yang dikonfigurasi". Ketik perintah lalu Enter, atau klik chip "Perintah cepat". Ketik `?` untuk bantuan sesuai mode. Singkatan didukung (`conf t`, `sh run`, `int fa0/1`).
+
+**Router dan switch (gaya Cisco IOS)**
+
+| Mode | Prompt | Masuk dengan |
 |---|---|---|
-| `help` | `help` | Menampilkan ringkasan sintaks dan daftar perintah CLI yang didukung. |
-| `show running-config` | `show running-config` | Menampilkan seluruh konfigurasi aktif: perangkat, link, interface, dan rule. |
-| `show interfaces` | `show interfaces` | Menampilkan daftar seluruh interface perangkat beserta alamat IP dan statusnya. |
-| `show rules` | `show rules` | Menampilkan tabel aturan firewall berurutan per chain. |
-| `rule add` | `rule add chain=forward proto=tcp dport=80 action=accept` | Menambahkan aturan firewall baru pada chain tertentu. |
-| `policy set` | `policy set chain=forward action=drop` | Mengubah kebijakan default (*default policy*) untuk chain tertentu. |
-| `test` | `test source=pc_a destination=server proto=tcp dport=80` | Mengeksekusi pengujian transmisi paket virtual langsung dari baris perintah. |
+| user | `Router-Firewall>` | awal |
+| privileged | `Router-Firewall#` | `enable` |
+| config | `Router-Firewall(config)#` | `configure terminal` |
+| config-if | `Router-Firewall(config-if)#` | `interface fa0/1` |
 
----
+Perintah: `enable`, `disable`, `configure terminal`, `interface <nama>`, `ip address <ip> <netmask>`, `no ip address`, `shutdown`, `no shutdown`, `hostname <nama>`, `exit`, `end`, `ping <perangkat|ip>`, `show running-config`, `show ip interface brief`, `show interfaces`, `show rules`, `show policy`, `show links`, `show revision`, `show audit`, `test <asal> <tujuan> <tcp|udp|icmp> [port]`. Dari mode config juga tersedia `rule add chain=forward proto=tcp dport=80 action=accept`, `policy forward drop`, dan `access-list permit tcp any any eq 80`.
 
-## 4. Glosarium Istilah Teknis
+**PC dan server (gaya Windows)**: prompt `C:\>`; perintah `ipconfig`, `ipconfig set <ip> <netmask> <gateway>`, `ping <perangkat|ip>`.
 
-- **Chain**: Jalur traversal paket di firewall:
-  - `INPUT`: Paket yang ditujukan langsung ke alamat IP router/firewall itu sendiri.
-  - `FORWARD`: Paket yang melintasi router dari satu subnet asal menuju subnet tujuan lain.
-  - `OUTPUT`: Paket yang diinisiasi langsung oleh router menuju jaringan luar.
-- **ACCEPT**: Keputusan firewall yang mengizinkan paket lewat menuju tujuan. *(Catatan: lolos kebijakan simulasi bukan jaminan service port tujuan aktif).*
-- **DROP**: Keputusan firewall yang menolak dan membuang paket secara diam-diam tanpa balasan ICMP unreachable.
-- **NO_ROUTE**: Status kegagalan perutean di mana gateway atau interface tujuan tidak dapat dijangkau oleh rute L2/L3. *(Bukan penolakan firewall).*
-- **Default Policy**: Aksi cadangan yang diterapkan jika paket dievaluasi hingga aturan terakhir pada chain namun tidak ada yang cocok.
-- **Config Revision**: Nomor revisi atomik bertambah satu setiap kali konfigurasi topologi atau aturan berubah, menjamin audit jejak yang akurat.
-- **First Matching Terminal Action Wins**: Prinsip evaluasi terurut dari atas ke bawah; aturan pertama yang cocok langsung mengeksekusi aksinya dan evaluasi berhenti.
+Contoh konfigurasi router:
+```
+enable
+configure terminal
+interface fa0/1
+ip address 10.0.0.1 255.255.255.0
+no shutdown
+exit
+rule add chain=forward proto=tcp dport=443 action=accept
+end
+show running-config
+```
+Catatan: ping yang berasal dari router sendiri belum didukung simulator; lakukan ping dari PC atau Server.
 
----
+## Glosarium
 
-## 5. Pertanyaan Umum & Diagnostik Masalah (FAQ)
+- **Chain**: daftar aturan menurut arah paket. FORWARD = paket yang melintasi router antar subnet; INPUT = menuju router; OUTPUT = berasal dari router (belum didukung).
+- **ACCEPT / DROP**: diizinkan lewat / dibuang. ACCEPT berarti lolos kebijakan simulasi, bukan bukti layanan di tujuan aktif.
+- **NO_ROUTE**: paket tidak punya jalur (mis. salah subnet atau gateway), sehingga firewall belum memutuskan.
+- **Default policy**: keputusan jika tidak ada aturan yang cocok.
+- **First match wins**: aturan aktif pertama yang cocok menentukan hasil; aturan nonaktif dilewati.
+- **Revisi konfigurasi**: nomor yang naik setiap konfigurasi berubah; hasil uji lama ditandai usang.
+- **Fa / Se**: port FastEthernet / Serial; satu port hanya dapat dipakai satu kabel.
 
-### Mengapa hasil pengujian paket saya menghasilkan status `NO_ROUTE` dan bukan `DROP`?
-`NO_ROUTE` berarti paket tidak menemukan jalur fisik atau logis menuju subnet tujuan (misalnya host belum memiliki default gateway, gateway berada di subnet yang salah, atau link kabel virtual terputus). Simulator membedakan secara tegas antara masalah perutean jaringan (`NO_ROUTE`) dan penolakan kebijakan firewall (`DROP`).
+## FAQ
 
-### Mengapa lalu lintas antar PC A dan PC B tidak melewati firewall?
-PC A dan PC B berada pada subnet yang sama (`192.168.1.0/24`) dan terhubung melalui Switch LAN (Layer 2). Berdasarkan standar arsitektur TCP/IP (*Same-Subnet Bypass*), lalu lintas lokal antar-host diteruskan langsung pada Layer 2 dan tidak dialihkan ke router gateway, sehingga tidak diproses oleh firewall router.
-
-### Apakah status ACCEPT menjamin server web dapat diakses secara nyata?
-Tidak. Seluruh aktivitas dalam aplikasi adalah **SIMULASI VIRTUAL**. Status ACCEPT hanya membuktikan bahwa paket lolos aturan filter firewall; aplikasi tidak membuka soket jaringan fisik ke perangkat keras produksi.
-
-
-### Mengapa label tombol atau teks CLI berubah aneh (misal "membantu", "pember") dan muncul error `removeChild`?
-Hal ini disebabkan oleh fitur **Google Chrome / Microsoft Edge Translate** yang aktif secara otomatis pada peramban. Penerjemah peramban mencoba menerjemahkan kata kunci teknis jaringan (seperti `help` menjadi "membantu" atau `permit` menjadi "pember"), sekaligus merusak struktur internal DOM React milik Streamlit sehingga memicu galat `NotFoundError: Failed to execute 'removeChild' on 'Node'`.
-**Solusi**: Klik ikon terjemahan pada bilah alamat peramban (address bar) dan pilih *"Jangan pernah terjemahkan situs ini"* (Never translate this site) untuk `localhost:8501` atau `localhost:8599`.
+- **Label tombol aneh atau muncul error tampilan?** Matikan terjemahan otomatis browser untuk `localhost`.
+- **Pekerjaan hilang setelah refresh?** Jangan hapus bagian `?w=...` di alamat URL; itu penanda workspace Anda. Membuka alamat tanpa itu membuat workspace baru. Gunakan **Ekspor proyek (JSON)** di Dasbor sebagai cadangan.
+- **Pesan "Minimal 2 interface bebas"?** Semua port sudah terpakai. Putuskan link lain atau tambahkan perangkat.
+- **3D kosong?** Browser perlu WebGL. Gunakan Chrome atau Edge terbaru.
+- **Perintah CLI "tidak dikenali"?** Periksa mode prompt; `configure terminal` hanya di mode privileged (`enable` dulu). Ketik `?` untuk daftar perintah mode itu.

@@ -1,80 +1,67 @@
-# Laporan Pengujian dan Tolok Ukur (Test Report)
+# Laporan Pengujian
 
-**Tanggal Pengujian:** 25 Oktober 2026  
-**Interpreter Target:** Python 3.13.1 (Virtualenv `.venv`)  
-**Lingkungan Eksekusi:** Windows 11, Streamlit 1.66.1, Plotly 7.1.0, Pytest 9.1.1  
-**Hasil Keseluruhan:** **75 Passed, 0 Failed** (100% Lulus)
+Hasil terakhir: **134 tes lulus, 0 gagal** (`.\.venv\Scripts\python.exe -m pytest -q`, Python 3.13, Streamlit 1.66.1).
 
----
+## Pemetaan T01-T14 (PRD bagian 12)
 
-## 1. Matriks Kriteria Penerimaan PRD Bagian 12 (T01 - T14)
-
-Seluruh skenario pengujian penerimaan (*acceptance test*) diimplementasikan pada file [`tests/test_acceptance.py`](file:///d:/firewall-simulator/tests/test_acceptance.py) dan memetakan 1:1 terhadap kontrak PRD:
-
-| ID | Nama Fungsi Uji | Skenario Uji | Status Riil |
+| ID | Skenario PRD | Nama tes | Status |
 |---|---|---|---|
-| **T01** | `test_T01_packet_accept_matched_rule` | PC A &rarr; server cocok rule ACCEPT; keputusan ACCEPT dan matched rule ID tercatat. | **PASSED** |
-| **T02** | `test_T02_packet_drop_generates_alert_and_log` | PC B &rarr; server cocok DROP; keputusan DROP, entri traffic log dan security event terbentuk. | **PASSED** |
-| **T03** | `test_T03_first_matching_terminal_action_wins` | Dua rule bertabrakan berurutan; rule dengan order lebih kecil (pertama cocok) menang. | **PASSED** |
-| **T04** | `test_T04_disabled_rule_is_ignored` | Aturan berstatus nonaktif (disabled) diabaikan saat evaluasi paket. | **PASSED** |
-| **T05** | `test_T05_device_ip_change_applied_to_subsequent_tests` | Perubahan IP interface host langsung berlaku pada pengujian berikutnya dan menaikkan `config_revision`. | **PASSED** |
-| **T06** | `test_T06_cli_added_rule_reflected_in_state` | Aturan yang ditambahkan via baris perintah CLI tersinkronisasi sempurna pada model ProjectState. | **PASSED** |
-| **T07** | `test_T07_gui_modified_rule_reflected_in_cli_show` | Mutasi aturan via GUI langsung terbaca pada output perintah `show rules` di CLI. | **PASSED** |
-| **T08** | `test_T08_unroutable_packet_returns_no_route` | Paket dengan rute/gateway terputus menghasilkan keputusan `NO_ROUTE`, bukan `DROP` palsu. | **PASSED** |
-| **T09** | `test_T09_invalid_ip_prefix_rejected_state_preserved` | Masukan format IPv4/CIDR tidak valid ditolak dengan pesan error; state konfigurasi tidak rusak. | **PASSED** |
-| **T10** | `test_T10_drop_packet_stops_at_firewall_in_3d_replay` | Paket yang diputuskan DROP berhenti tepat di router firewall pada penelusuran spasial 3D. | **PASSED** |
-| **T11** | `test_T11_page_navigation_does_not_mutate_project_state` | Navigasi halaman tidak memutasi ProjectState; mutasi hanya sah lewat `apply_command`. *(Catatan: Fitur Mode Belajar/Profesional dihentikan atas keputusan produk dan T11 diganti; PRD tidak diubah).* | **PASSED** |
-| **T12** | `test_T12_normal_drop_event_is_not_labeled_attack` | Event penolakan paket (DROP) tidak otomatis dilabeli sebagai serangan atau ancaman siber (*attack*). | **PASSED** |
-| **T13** | `test_T13_historical_results_preserve_config_revision` | Hasil pengujian masa lalu tetap mengabadikan `config_revision` saat pengujian tersebut dibuat. | **PASSED** |
-| **T14** | `test_T14_unknown_cli_command_safe_error_no_subprocess` | Perintah CLI asing atau masukan berbahaya menghasilkan pesan error aman tanpa eksekusi shell OS. | **PASSED** |
+| T01 | PC A ke server cocok ACCEPT | `test_T01_packet_accept_matched_rule` | Lulus |
+| T02 | PC B ke server cocok DROP, event dan log muncul | `test_T02_packet_drop_generates_alert_and_log` | Lulus |
+| T03 | Dua rule cocok berurutan, rule pertama menang | `test_T03_first_matching_terminal_action_wins` | Lulus |
+| T04 | Rule disabled diabaikan | `test_T04_disabled_rule_is_ignored` | Lulus |
+| T05 | IP perangkat diubah, uji berikutnya memakai IP baru | `test_T05_device_ip_change_applied_to_subsequent_tests` | Lulus |
+| T06 | CLI menambah rule, GUI membaca rule yang sama | `test_T06_cli_added_rule_reflected_in_state` | Lulus |
+| T07 | GUI mengubah rule, CLI `show` memakai nilai baru | `test_T07_gui_modified_rule_reflected_in_cli_show` | Lulus |
+| T08 | Paket tanpa jalur menghasilkan NO_ROUTE | `test_T08_unroutable_packet_returns_no_route` | Lulus |
+| T09 | IP/prefix tidak valid ditolak, state utuh | `test_T09_invalid_ip_prefix_rejected_state_preserved` | Lulus |
+| T10 | DROP berhenti di firewall pada replay 3D | `test_T10_drop_packet_stops_at_firewall_in_3d_replay` | Lulus |
+| T11 | (PRD: pergantian Learning/Professional) | `test_T11_page_navigation_does_not_mutate_project_state` | Lulus, lihat catatan |
+| T12 | Event DROP normal tidak diberi label serangan | `test_T12_normal_drop_event_is_not_labeled_attack` | Lulus |
+| T13 | Hasil lama menyimpan `config_revision` | `test_T13_historical_results_preserve_config_revision` | Lulus |
+| T14 | Perintah CLI tidak dikenal, error aman tanpa shell | `test_T14_unknown_cli_command_safe_error_no_subprocess` | Lulus |
 
----
+**Catatan T11:** fitur Mode Belajar/Profesional dihentikan atas keputusan produk (tidak berfungsi dan membingungkan pengguna). Tes T11 diganti dengan kriteria setara: berpindah halaman dan memuat demo tidak mengubah ProjectState selain lewat `apply_command`. PRD tidak diubah.
 
-## 2. Hasil Tolok Ukur Kinerja (Benchmark Performance)
+## Jumlah tes per berkas
 
-Pengujian tolok ukur diuji pada topologi skala menengah: **10 Perangkat (1 Router, 1 Switch, 4 PC, 4 Server) + 50 Aturan Firewall**, diukur melalui [`tests/test_benchmark.py`](file:///d:/firewall-simulator/tests/test_benchmark.py):
-
-| Metrik Kinerja | Kondisi Pengujian | Angka Pengukuran Riil |
+| Berkas | Jumlah | Cakupan |
 |---|---|---|
-| **Evaluasi Paket (`simulate_packet`)** | 50 iterasi pengujian acak pada rule ke-49 | **0.3479 ms** per evaluasi paket |
-| **Render Antarmuka Streamlit (AppTest)** | Render halaman utama penuh (sidebar + start_here) | **0.5419 s** per siklus eksekusi penuh |
+| `test_acceptance.py` | 22 | T01-T14 dan kasus pendukung |
+| `test_engine.py` | 19 | Engine simulator, aturan, validasi |
+| `test_ios_cli.py` | 16 | CLI gaya Cisco/Windows (murni) |
+| `test_pages_2b.py` | 14 | Aturan Firewall, Konfigurasi Perangkat, Simulasi Paket |
+| `test_ui.py` | 13 | Navigasi, halaman awal, demo, mode peringatan |
+| `test_pages_2d.py` | 8 | Log Trafik, Pusat Peringatan, Lab Belajar, 3D |
+| `test_cli_parser.py` | 7 | Parser CLI lama |
+| `test_config_service.py` | 6 | ConfigService |
+| `test_pages_cli.py` | 6 | Halaman Konsol CLI |
+| `test_scenarios.py` | 5 | Skenario Lab |
+| `test_workspace.py` | 5 | Penyimpanan otomatis, pemulihan setelah refresh |
+| `test_analytics.py` | 4 | Statistik dan filter log |
+| `test_storage.py`, `test_viz3d.py` | 3 + 3 | Simpan/muat proyek, frame replay |
+| `test_smoke.py` | 2 | Impor dasar |
+| `test_benchmark.py` | 1 | Benchmark |
 
-*Catatan: Tidak ada ambang batas sintetis yang dikarang; seluruh angka di atas dicatat apa adanya dari lingkungan eksekusi proyek.*
+## Benchmark
 
----
+Topologi 10 perangkat dan 50 aturan, diukur di mesin pengembangan Windows (angka bergantung perangkat keras):
 
-## 3. Rekapitulasi Jumlah Pengujian
+| Pengukuran | Hasil |
+|---|---|
+| `simulate_packet` (50 iterasi) | sekitar 0,64 ms per paket |
+| Render halaman utama via AppTest | sekitar 0,92 detik |
 
-Total pengujian otomatis yang terdaftar dan lulus pada `pytest`:
+## Verifikasi tampilan
 
-- `tests/test_acceptance.py`: 14 passed
-- `tests/test_analytics.py`: 4 passed
-- `tests/test_benchmark.py`: 1 passed
-- `tests/test_cli_parser.py`: 7 passed
-- `tests/test_config_service.py`: 4 passed
-- `tests/test_engine.py`: 19 passed
-- `tests/test_scenarios.py`: 5 passed
-- `tests/test_smoke.py`: 2 passed
-- `tests/test_storage.py`: 6 passed
-- `tests/test_ui.py`: 10 passed
-- `tests/test_viz3d.py`: 3 passed
-- **Total:** **75 passed in 12.01s**
+Komponen 2D dan 3D diuji secara visual di browser headless (render, seret perangkat dengan nilai kembali ke Python, replay paket, DROP berhenti di router) dan oleh pengguna di browser. AppTest tidak dapat menguji isi WebGL; render 3D diverifikasi manual.
 
----
+## Keterbatasan
 
-## 4. Keterbatasan yang Diketahui (Known Limitations)
+- Ping yang berasal dari router sendiri (chain OUTPUT) belum didukung (UNSUPPORTED_CASE sesuai PRD MVP).
+- Tes AppTest tidak berjalan di terminal sandbox Antigravity (soket loopback diblokir); jalankan pytest penuh di terminal biasa.
+- Router tunggal; tidak ada NAT, state koneksi, atau multi-router.
 
-1. **Verifikasi Browser Visual Otomatis**: Driver otomatis Playwright tidak dapat diunduh pada lingkungan runtime saat ini (HTTP 404 dari mirror upstream). Oleh karena itu, pengujian visual antarmuka dibuktikan secara terstruktur melalui Streamlit `AppTest` (verifikasi hierarki DOM, ketiadaan exception, struktur komponen, dan ketiadaan dict mentah), bukan peramban live otomatis.
-2. **Chain OUTPUT dari Router**: Evaluasi paket yang diinisiasi langsung dari internal router ditandai sebagai `Decision.UNSUPPORTED_CASE` sesuai batasan MVP akademik.
-3. **Topologi Multi-Router**: MVP dibatasi pada arsitektur 1 router/firewall tunggal.
+## Backlog P2 (belum diimplementasikan)
 
----
-
-## 5. Backlog Fitur Tingkat Lanjut P2 (Belum Diimplementasikan)
-
-Fitur-fitur berikut berada di luar cakupan MVP dan **BELUM diimplementasikan** (dijadwalkan untuk rilis berikutnya):
-- [ ] Editor topologi drag-and-drop interaktif berbasis canvas bebas.
-- [ ] Watchlist IP, daftar trusted IP dinamis, dan mitigasi otomatis pada Security Alert Center.
-- [ ] Ambang batas frekuensi alarm berulang (*rate-limiting / flood alarm*).
-- [ ] Model fisik glTF 3D realistis bertekstur vendor hardware.
-- [ ] Emulasi perutean dinamis multi-router (OSPF/BGP).
+Korelasi anomali untuk deteksi serangan, chain OUTPUT, NAT dan inspeksi stateful, multi-router dan routing statis, ekspor laporan otomatis, Tab-completion CLI.

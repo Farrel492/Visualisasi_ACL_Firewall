@@ -35,6 +35,10 @@
   #tip b { font-weight: 600; }
   #tip span { color: var(--screen-mute); font-family: var(--mono); font-size: 11px; }
   #verdict { position: absolute; right: 12px; bottom: 10px; font: 600 12px var(--sans); padding: 6px 10px; border-radius: 6px; display: none; background: #0F1519; border: 1px solid var(--screen-line); }
+  .compact .ifl, .compact .kind, .compact .pill { display: none; }
+  .compact .dev .name { font-size: 25px; }
+  .compact .dev .ip { font-size: 19px; }
+  .compact #bar { display: none; }
   @keyframes drawin { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
   @keyframes risein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .intro .link { stroke-dasharray: var(--len); animation: drawin .7s ease-out both; }
@@ -85,7 +89,9 @@
     if (e.data && e.data.type === "streamlit:render") { args = e.data.args || {}; render(); }
   });
   send("streamlit:componentReady", { apiVersion: 1 });
-  new ResizeObserver(setHeight).observe(document.getElementById("wrap"));
+  function updateCompact() { document.getElementById("wrap").classList.toggle("compact", document.getElementById("wrap").clientWidth < 560); }
+new ResizeObserver(function () { updateCompact(); setHeight(); }).observe(document.getElementById("wrap"));
+updateCompact();
 
   // ---- util svg
   function el(tag, attrs, parent) {
@@ -188,7 +194,7 @@
       ifaceLabel(gb, a, b, ux, uy, ra, l.a_if);
       ifaceLabel(gb, b, a, -ux, -uy, rb, l.b_if);
       var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      el("rect", { x: mx - 11, y: my - 9, width: 22, height: 18, rx: 3, fill: "#1E252B", stroke: color, "stroke-width": 1 }, gb);
+      el("rect", { "class": "pill", x: mx - 11, y: my - 9, width: 22, height: 18, rx: 3, fill: "#1E252B", stroke: color, "stroke-width": 1 }, gb);
       var kt = el("text", { x: mx, y: my + 4, "text-anchor": "middle", "class": "kind", fill: color }, gb);
       kt.textContent = serial ? "Se" : "Fa";
     });
@@ -285,7 +291,7 @@
       ifaceLabel(gb, a, b, ux, uy, ra, l.a_if);
       ifaceLabel(gb, b, a, -ux, -uy, rb, l.b_if);
       var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      el("rect", { x: mx - 11, y: my - 9, width: 22, height: 18, rx: 3, fill: "#1E252B", stroke: color, "stroke-width": 1 }, gb);
+      el("rect", { "class": "pill", x: mx - 11, y: my - 9, width: 22, height: 18, rx: 3, fill: "#1E252B", stroke: color, "stroke-width": 1 }, gb);
       el("text", { x: mx, y: my + 4, "text-anchor": "middle", "class": "kind", fill: color }, gb).textContent = serial ? "Se" : "Fa";
     });
   }

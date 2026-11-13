@@ -4,6 +4,14 @@ Format tiap entri: Date; version; Added/Changed/Fixed; impacted modules; tests p
 
 ## [Unreleased]
 
+### 2026-11-12: Rilis final (MVP lengkap)
+- **Added:** Topologi 2D interaktif (gambar perangkat, seret, kabel Fa/Se, switch 24 port); visualisasi 3D Three.js; penyimpanan otomatis (token URL); rail navigasi tetap; Konsol CLI gaya Cisco/Windows (`config/ios_cli.py`); ekspor/impor proyek; peringatan dapat ditandai ditinjau; Lab Belajar dengan penilaian Lulus.
+- **Changed:** halaman Dasbor, Konfigurasi Perangkat, Aturan Firewall, Simulasi Paket, Log Trafik, Pusat Peringatan, dan Lab Belajar ditulis ulang; tema "meja lab jaringan" (ADR-003); label dan teks tanpa ID internal.
+- **Fixed:** Dasbor error setelah perubahan konfigurasi; Naik/Turun rule kini menukar urutan dengan benar; pilihan perangkat di Topologi 2D tidak tertimpa; tombol demo dapat dijangkau; tombol replay 3D berfungsi; data tidak hilang saat refresh.
+- **Removed:** Mode Belajar/Profesional (keputusan produk); tes T11 diganti.
+- **Tests:** 134 lulus (lihat `docs/TEST_REPORT.md`).
+- **Known limitations:** ping dari router (chain OUTPUT) belum didukung; router tunggal.
+
 ### 2026-11-01: Fase 2a - Strip Status Dasbor, Tabel Uji Terbaru, Perbaikan Default Policy
 - **Changed:**
   - `overview.py`: Empat kartu KPI besar (`st.metric`) diganti strip status satu baris (`st.html`) yang menampilkan revisi, jumlah perangkat, rule, link, dan status validasi secara ringkas.
